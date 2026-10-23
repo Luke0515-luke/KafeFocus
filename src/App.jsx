@@ -50,7 +50,7 @@ function Cafe({ user }) {
   });
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-screen w-screen overflow-hidden bg-[#1c1917]">
       {cafeId && <CafeScene seats={seats} mySeatId={mySeat?.id} onSeatClick={(s) => run(() => claimSeat(s.id))} />}
       {(loading || !cafeId) && (
         <div className="absolute inset-0 flex items-center justify-center text-stone-400">載入咖啡廳中…</div>
