@@ -4,20 +4,18 @@ import { OrbitControls } from '@react-three/drei';
 import CafeDecor from './CafeDecor';
 import Seat3D from './Seat3D';
 import UserAvatar3D, { preloadAvatar } from './UserAvatar3D';
+import { THEMES } from '../../config/themes';
 
-const BG = '#0d0806';
-
-// 偏暗的咖啡廳夜晚氣氛：環境光很低，主要靠吊燈與立燈的暖光。
-// 覺得太暗：調高 ambientLight / hemisphereLight；覺得太亮：反過來。
-function Lights() {
+// 燈光全部來自主題（src/config/themes.js）。太暗就調高該主題的 ambient / hemi / key，太亮就調低。
+function Lights({ theme }) {
   return (
     <>
-      <ambientLight intensity={0.28} color="#ffcf9e" />
-      <hemisphereLight args={['#ffd9b0', '#2a1a10', 0.3]} />
+      <ambientLight color={theme.ambient[0]} intensity={theme.ambient[1]} />
+      <hemisphereLight args={[theme.hemi[0], theme.hemi[1], theme.hemi[2]]} />
       <directionalLight
         position={[5, 9, 9]}
-        intensity={0.55}
-        color="#ffc88f"
+        intensity={theme.key[1]}
+        color={theme.key[0]}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-11}
@@ -35,8 +33,9 @@ function Lights() {
  * @param seats         來自 useCafeRealtime 的座位陣列
  * @param currentUserId 目前登入者，用來標示「你」
  * @param onSeatSelect  點擊空位光球時呼叫 (seat) => void
+ * @param theme         咖啡廳主題（src/config/themes.js）
  */
-export default function CafeScene({ seats = [], currentUserId, onSeatSelect, className }) {
+export default function CafeScene({ seats = [], currentUserId, onSeatSelect, theme = THEMES.roast, className }) {
   useEffect(() => {
     seats.forEach((s) => preloadAvatar(s.occupant_avatar_url));
   }, [seats]);
@@ -44,10 +43,10 @@ export default function CafeScene({ seats = [], currentUserId, onSeatSelect, cla
   return (
     <div className={className ?? 'h-full w-full'}>
       <Canvas shadows dpr={[1, 2]} camera={{ position: [3, 8.5, 12.5], fov: 45 }} gl={{ antialias: true }}>
-        <color attach="background" args={[BG]} />
-        <fog attach="fog" args={[BG, 22, 40]} />
-        <Lights />
-        <CafeDecor />
+        <color attach="background" args={[theme.bg]} />
+        <fog attach="fog" args={[theme.bg, theme.fog[0], theme.fog[1]]} />
+        <Lights theme={theme} />
+        <CafeDecor theme={theme} />
 
         {seats.map((seat) => (
           <group key={seat.id}>
