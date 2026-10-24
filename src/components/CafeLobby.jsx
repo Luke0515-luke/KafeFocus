@@ -53,7 +53,7 @@ export default function CafeLobby({ session, onSelect, onSignOut, onOpenCalendar
   }, [cafes]);
 
   return (
-    <div className="h-screen overflow-y-auto bg-stone-900 text-stone-200">
+    <div className="h-[100dvh] overflow-y-auto bg-stone-900 text-stone-200">
       <div className="mx-auto max-w-5xl px-4 py-8">
         <header className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <div>
