@@ -1,83 +1,70 @@
-import { useCallback, useEffect, useState } from "react";
-import { supabase } from "./lib/supabaseClient";
-import { sanitizeAvatarUrl } from "./lib/avatarUrl";
-import { useAuth } from "./hooks/useAuth";
-import { useCafeRealtime } from "./hooks/useCafeRealtime";
-import AuthPanel from "./components/AuthPanel";
-import CafeScene from "./components/cafe/CafeScene";
-import ControlPanel from "./components/cafe/ControlPanel";
+import { useCallback, useEffect, useState } from 'react';
+import AuthGate from './components/AuthGate';
+import Cafe3DScene from './components/3d/Cafe3DScene';
+import SeatControlPanel from './components/hud/SeatControlPanel';
+import { useCafeRealtime } from './hooks/useCafeRealtime';
+import { supabase } from './lib/supabaseClient';
 
-const CAFE_SLUG = "main-street";
+const CAFE_SLUG = 'main-street';
 
-function Cafe({ user }) {
-  const [cafeId, setCafeId] = useState(null);
+function CafeRoom({ session }) {
+  const userId = session.user.id;
+  const [cafe, setCafe] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState(null);
-
-  const { seats, mySeat, loading, error, connection, onlineCount, claimSeat, leaveSeat, setStatus } =
-    useCafeRealtime(cafeId, user.id);
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    supabase.from("cafes").select("id").eq("slug", CAFE_SLUG).single().then(({ data, error: err }) => {
-      if (err) setToast("找不到咖啡廳，請確認已執行 schema.sql");
-      else setCafeId(data.id);
-    });
-    supabase.from("profiles").select("*").eq("id", user.id).single().then(({ data }) => setProfile(data));
-  }, [user.id]);
+    let alive = true;
+    (async () => {
+      const [c, p] = await Promise.all([
+        supabase.from('cafes').select('*').eq('slug', CAFE_SLUG).single(),
+        supabase.from('profiles').select('*').eq('id', userId).single(),
+      ]);
+      if (!alive) return;
+      if (c.error) setNotice(`讀取咖啡廳失敗：${c.error.message}`); else setCafe(c.data);
+      if (p.error) setNotice(`讀取個人檔案失敗：${p.error.message}`); else setProfile(p.data);
+    })();
+    return () => { alive = false; };
+  }, [userId]);
 
-  useEffect(() => {
-    if (!toast) return undefined;
-    const t = setTimeout(() => setToast(null), 3500);
-    return () => clearTimeout(t);
-  }, [toast]);
+  const {
+    seats, mySeat, loading, error, connection, onlineCount,
+    claimSeat, leaveSeat, setStatus,
+  } = useCafeRealtime(cafe?.id, userId);
 
-  const run = useCallback(async (fn) => {
-    setBusy(true);
-    try { await fn(); } catch (e) { setToast(e.message); } finally { setBusy(false); }
-  }, []);
+  const handleSeatSelect = useCallback(async (seat) => {
+    setNotice('');
+    try { await claimSeat(seat.id); } catch (e) { setNotice(e.message); }
+  }, [claimSeat]);
 
-  const saveAvatar = (raw) => run(async () => {
-    const url = sanitizeAvatarUrl(raw);
-    if (!url) throw new Error("網址必須是 https://models.readyplayer.me/xxxx.glb");
-    const { data, error: err } = await supabase.from("profiles")
-      .update({ avatar_url: url, updated_at: new Date().toISOString() })
-      .eq("id", user.id).select().single();
-    if (err) throw err;
+  const handleSaveAvatar = useCallback(async (url) => {
+    const { data, error: err } = await supabase
+      .from('profiles').update({ avatar_url: url, updated_at: new Date().toISOString() })
+      .eq('id', userId).select().single();
+    if (err) throw new Error(err.message);
     setProfile(data);
-    if (mySeat) await claimSeat(mySeat.id); // 重新入座同一位 = 刷新頭像快照
-    setToast("頭像已更新");
-  });
+    if (mySeat) await claimSeat(mySeat.id); // 已入座：刷新座位上的頭像快照（狀態與倒數保留）
+  }, [userId, mySeat, claimSeat]);
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-[#1c1917]">
-      {cafeId && <CafeScene seats={seats} mySeatId={mySeat?.id} onSeatClick={(s) => run(() => claimSeat(s.id))} />}
-      {(loading || !cafeId) && (
-        <div className="absolute inset-0 flex items-center justify-center text-stone-400">載入咖啡廳中…</div>
-      )}
-      <ControlPanel
+    <div className="relative h-screen w-screen overflow-hidden bg-stone-900">
+      <Cafe3DScene seats={seats} currentUserId={userId} onSeatSelect={handleSeatSelect} />
+      <SeatControlPanel
+        cafeName={cafe?.name}
+        profile={profile}
         mySeat={mySeat}
         connection={connection}
         onlineCount={onlineCount}
-        busy={busy}
-        displayName={profile?.display_name}
-        onStudy={({ task, minutes }) => run(() => setStatus({ status: "studying", task, durationSec: minutes * 60 }))}
-        onBreak={() => run(() => setStatus({ status: "break", task: "", durationSec: 300 }))}
-        onLeave={() => run(leaveSeat)}
-        onSaveAvatar={saveAvatar}
-        onSignOut={async () => { await leaveSeat().catch(() => {}); await supabase.auth.signOut(); }}
+        notice={notice || error?.message}
+        onSetStatus={(status, task, sec) => setStatus({ status, task, durationSec: sec })}
+        onLeave={leaveSeat}
+        onSaveAvatar={handleSaveAvatar}
       />
-      {(toast || error) && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-lg bg-stone-800 px-4 py-2 text-sm shadow-lg">
-          {toast ?? error.message}
-        </div>
-      )}
+      {loading && <div className="pointer-events-none absolute inset-0 grid place-items-center text-amber-100">載入咖啡廳中…</div>}
     </div>
   );
 }
 
 export default function App() {
-  const { user, loading } = useAuth();
-  if (loading) return <div className="flex h-full items-center justify-center text-stone-400">載入中…</div>;
-  return user ? <Cafe user={user} /> : <AuthPanel />;
+  return <AuthGate>{(session) => <CafeRoom session={session} />}</AuthGate>;
 }
