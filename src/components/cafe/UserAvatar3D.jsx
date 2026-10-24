@@ -7,17 +7,19 @@ import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { BookOpen, Coffee } from 'lucide-react';
 import { applySittingPose } from './sitPose';
+import { reachArm, setSwing, solveElbow } from './rigUtils';
+import { createSeatedState, stepActivity, SIT } from './seatedMotion';
+import SeatProps from './SeatProps';
+import SpeechBubble from './Bubble';
+import { seatStyle } from './layout';
 import { AvatarErrorBoundary } from './AvatarErrorBoundary';
 import { useCountdown, formatMMSS } from '../../hooks/useCountdown';
 import { sanitizeAvatarUrl } from '../../lib/avatarUrl';
 
-const SIT = {
-  hipAboveSeat: 0.07, // 髖部高出椅面
-  backShift: 0.12,    // 往椅背方向退一點
-  labelAboveHead: 0.4,
-};
 const FALLBACK_HIP_HEIGHT = 0.95;
 const _q = new THREE.Quaternion();
+const _UP = new THREE.Vector3(0, 1, 0);
+const _dirv = new THREE.Vector3();
 
 /** 提早預載（在座位資料抵達、角色真的渲染之前）。不合法網址會被略過。 */
 export function preloadAvatar(rawUrl) {
@@ -26,7 +28,7 @@ export function preloadAvatar(rawUrl) {
 }
 
 /* ------------------------- 頭頂 2D UI（深色霧面標籤） ------------------------- */
-function AvatarHud({ seat, isSelf, y }) {
+function AvatarHud({ seat, isSelf, y, bubble }) {
   const remaining = useCountdown(seat.phase_ends_at);
   const studying = seat.status === 'studying';
   const finished = remaining === 0;
@@ -34,6 +36,7 @@ function AvatarHud({ seat, isSelf, y }) {
   return (
     <Html position={[0, y, 0]} center distanceFactor={7} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
       <div className="pointer-events-none flex select-none flex-col items-center gap-1 whitespace-nowrap">
+        <SpeechBubble bubble={bubble} />
         <div
           className={`rounded-md px-2.5 py-0.5 text-xs font-medium backdrop-blur-sm ${
             isSelf ? 'bg-amber-700/90 text-amber-50' : 'bg-stone-900/80 text-stone-100 ring-1 ring-stone-600/60'
@@ -67,19 +70,59 @@ const hashColor = (id = '') => {
   return CLOTHES[h % CLOTHES.length];
 };
 
-function PlaceholderAvatar({ seat, isSelf, dim = false }) {
+const ARM_A = 0.32; // 占位角色：上臂、前臂長度（卡通比例，稍長一點才搆得到桌面）
+const ARM_B = 0.36;
+const _S = new THREE.Vector3(); const _E = new THREE.Vector3(); const _H = new THREE.Vector3();
+const _T = new THREE.Vector3(); const _headSF = new THREE.Vector3();
+
+/** 讓一根膠囊（單位長度 = ARM_A / ARM_B 的那種）從 p 伸到 q */
+function placeSegment(mesh, p, q, baseLen) {
+  if (!mesh) return;
+  _dirv.subVectors(q, p);
+  const len = _dirv.length();
+  if (len < 1e-5) return;
+  mesh.position.set((p.x + q.x) / 2, (p.y + q.y) / 2, (p.z + q.z) / 2);
+  mesh.quaternion.setFromUnitVectors(_UP, _dirv.divideScalar(len));
+  mesh.scale.set(1, len / baseLen, 1);
+}
+
+function PlaceholderAvatar({ seat, isSelf, dim = false, bubble, st, style }) {
   const cloth = hashColor(seat.occupant_id ?? '');
   const mat = { transparent: dim, opacity: dim ? 0.5 : 1, roughness: 0.85 };
-  const bob = useRef();
-  useFrame(({ clock }) => {
-    if (!bob.current) return;
-    bob.current.position.y = Math.sin(clock.elapsedTime * 1.8) * 0.006;
-    bob.current.rotation.x = seat.status === 'studying' ? 0.1 : 0;
+  const body = useRef();
+  const armRefs = useRef({});
+  const setArm = (k) => (m) => { armRefs.current[k] = m; };
+
+  useFrame(({ clock }, delta) => {
+    const dt = Math.min(delta, 0.05);
+    const t = clock.elapsedTime;
+    const lean = st.current.lean;
+    const c = Math.cos(lean); const sn = Math.sin(lean);
+
+    // 這一幀先用上一幀的前傾角算肩、頭的位置（座位座標系 = 這個群組座標 + (0,0,-backShift)）
+    _headSF.set(0, 0.7 * c - 0.01 * sn, 0.7 * sn + 0.01 * c - SIT.backShift);
+    stepActivity(st.current, {
+      seat, style, t, dt, headSF: _headSF,
+      shoulderY: 0.52 * c, shoulderZ: 0.52 * sn - SIT.backShift, reach: ARM_A + ARM_B,
+    });
+
+    if (body.current) {
+      body.current.position.y = Math.sin(t * 1.8) * 0.006;
+      body.current.rotation.x = st.current.lean;
+    }
+    // 雙臂：兩段式 IK，肩膀跟著前傾轉
+    for (const [side, sx, target, pole] of [['L', 1, st.current.L, st.current.poleL], ['R', -1, st.current.R, st.current.poleR]]) {
+      _S.set(sx * 0.2, 0.52 * c, 0.52 * sn);
+      _T.copy(target); _T.z += SIT.backShift;
+      solveElbow(_S, _T, ARM_A, ARM_B, pole, _E, _H);
+      placeSegment(armRefs.current[`${side}u`], _S, _E, ARM_A);
+      placeSegment(armRefs.current[`${side}f`], _E, _H, ARM_B);
+    }
   });
 
   return (
     <group position={[0, 0, -SIT.backShift]}>
-      <group ref={bob}>
+      <group ref={body}>
         {/* 軀幹 */}
         <mesh position={[0, 0.34, 0]} castShadow>
           <capsuleGeometry args={[0.16, 0.26, 6, 14]} />
@@ -94,21 +137,27 @@ function PlaceholderAvatar({ seat, isSelf, dim = false }) {
           <sphereGeometry args={[0.118, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
           <meshStandardMaterial color="#241912" {...mat} />
         </mesh>
-        {/* 雙臂伸向桌面 */}
-        {[-1, 1].map((sx) => (
-          <mesh key={sx} position={[sx * 0.2, 0.3, 0.17]} rotation={[Math.PI / 2 - 0.35, 0, sx * 0.08]} castShadow>
-            <capsuleGeometry args={[0.04, 0.26, 4, 10]} />
+      </group>
+      {/* 雙臂（每幀由 IK 擺放） */}
+      {['L', 'R'].map((side) => (
+        <group key={side}>
+          <mesh ref={setArm(`${side}u`)} castShadow>
+            <capsuleGeometry args={[0.04, ARM_A - 0.08, 4, 10]} />
             <meshStandardMaterial color={cloth} {...mat} />
           </mesh>
-        ))}
-      </group>
-      <AvatarHud seat={seat} isSelf={isSelf} y={1.05} />
+          <mesh ref={setArm(`${side}f`)} castShadow>
+            <capsuleGeometry args={[0.035, ARM_B - 0.07, 4, 10]} />
+            <meshStandardMaterial color="#d2a984" {...mat} />
+          </mesh>
+        </group>
+      ))}
+      <AvatarHud seat={seat} isSelf={isSelf} y={1.05} bubble={bubble} />
     </group>
   );
 }
 
 /* ------------------------- Ready Player Me 模型 ------------------------- */
-function AvatarModel({ url, seat, isSelf }) {
+function AvatarModel({ url, seat, isSelf, bubble, st, style }) {
   const { scene } = useGLTF(url); // 載入失敗會 throw，由外層 ErrorBoundary 接住
 
   // 每位玩家各自 clone 一份，並只做一次坐姿擺放
@@ -127,44 +176,75 @@ function AvatarModel({ url, seat, isSelf }) {
   const hipHeight = rig.info?.hipHeight ?? FALLBACK_HIP_HEIGHT;
   const headHeight = rig.info?.headHeight ?? hipHeight + 0.65;
   const labelY = headHeight - hipHeight + SIT.hipAboveSeat + SIT.labelAboveHead;
+  // 角色根節點在座位座標系的位置（和下面 <primitive position> 一致）
+  const rootPos = useMemo(() => new THREE.Vector3(0, SIT.hipAboveSeat - hipHeight, -SIT.backShift), [hipHeight]);
+  const tmp = useMemo(() => ({ head: new THREE.Vector3(), sh: new THREE.Vector3(), tl: new THREE.Vector3(), tr: new THREE.Vector3() }), []);
 
-  // 專注時低頭、休息時抬頭，加一點呼吸起伏
-  const nodAngle = useRef(0);
+  // 每幀：決定動作（打電腦 / 看書 / 喝咖啡）→ 前傾、點頭 → 雙手 IK 伸到目標
   useFrame(({ clock }, delta) => {
-    const nod = rig.info?.nod;
-    if (!nod) return;
-    const target = seat.status === 'studying' ? 0.32 : 0.02;
-    nodAngle.current = THREE.MathUtils.damp(nodAngle.current, target, 4, delta);
-    const breathing = Math.sin(clock.elapsedTime * 1.6) * 0.012;
-    _q.setFromAxisAngle(nod.axis, nodAngle.current + breathing);
-    nod.bone.quaternion.copy(_q).multiply(nod.base);
+    const info = rig.info;
+    if (!info) return;
+    const dt = Math.min(delta, 0.05);
+    const t = clock.elapsedTime;
+    const { limbs, nod, lean } = info;
+    const s = st.current;
+
+    // 頭與肩膀目前的位置（座位座標系）
+    if (nod?.bone) { nod.bone.getWorldPosition(tmp.head); rig.root.worldToLocal(tmp.head).add(rootPos); } else tmp.head.set(0, 0.75, 0);
+    let sy = 0.55; let sz = -0.1; let reach = 0;
+    if (limbs.L && limbs.R) {
+      limbs.L.arm.getWorldPosition(tmp.sh); rig.root.worldToLocal(tmp.sh).add(rootPos);
+      sy = tmp.sh.y; sz = tmp.sh.z;
+      limbs.R.arm.getWorldPosition(tmp.sh); rig.root.worldToLocal(tmp.sh).add(rootPos);
+      sy = (sy + tmp.sh.y) / 2; sz = (sz + tmp.sh.z) / 2;
+      reach = Math.min(limbs.L.a + limbs.L.b, limbs.R.a + limbs.R.b);
+    }
+    stepActivity(s, { seat, style, t, dt, headSF: tmp.head, shoulderY: sy, shoulderZ: sz, reach });
+
+    // 上身前傾（工作時）與點頭，加一點呼吸起伏
+    if (lean?.spine) setSwing(lean.spine, s.lean * 0.5);
+    if (lean?.spine1) setSwing(lean.spine1, s.lean * 0.5);
+    if (nod) {
+      _q.setFromAxisAngle(nod.axis, s.nod + Math.sin(t * 1.6) * 0.012);
+      nod.bone.quaternion.copy(_q).multiply(nod.base);
+    }
+
+    // 雙手伸向目標（座位座標 → 角色根節點座標）
+    if (limbs.L && limbs.R) {
+      reachArm(rig.root, limbs.L, tmp.tl.copy(s.L).sub(rootPos), s.poleL);
+      reachArm(rig.root, limbs.R, tmp.tr.copy(s.R).sub(rootPos), s.poleR);
+    }
   });
 
   return (
     <>
       <primitive object={rig.root} position={[0, SIT.hipAboveSeat - hipHeight, -SIT.backShift]} />
-      <AvatarHud seat={seat} isSelf={isSelf} y={labelY} />
+      <AvatarHud seat={seat} isSelf={isSelf} y={labelY} bubble={bubble} />
     </>
   );
 }
 
 /* ------------------------- 對外組件 ------------------------- */
-export default function UserAvatar3D({ seat, isSelf = false }) {
+export default function UserAvatar3D({ seat, isSelf = false, bubble }) {
   const url = useMemo(() => sanitizeAvatarUrl(seat.occupant_avatar_url), [seat.occupant_avatar_url]);
-  const placeholder = <PlaceholderAvatar seat={seat} isSelf={isSelf} />;
+  const style = seatStyle(seat);
+  const st = useRef(null);
+  if (!st.current) st.current = createSeatedState();
+  const placeholder = <PlaceholderAvatar seat={seat} isSelf={isSelf} bubble={bubble} st={st} style={style} />;
 
   return (
     // 座標：seat.pos_* 是椅面中心；rot_y 決定面向
     <group position={[seat.pos_x, seat.pos_y, seat.pos_z]} rotation={[0, seat.rot_y, 0]}>
       {url ? (
         <AvatarErrorBoundary key={url} fallback={placeholder}>
-          <Suspense fallback={<PlaceholderAvatar seat={seat} isSelf={isSelf} dim />}>
-            <AvatarModel url={url} seat={seat} isSelf={isSelf} />
+          <Suspense fallback={<PlaceholderAvatar seat={seat} isSelf={isSelf} dim bubble={bubble} st={st} style={style} />}>
+            <AvatarModel url={url} seat={seat} isSelf={isSelf} bubble={bubble} st={st} style={style} />
           </Suspense>
         </AvatarErrorBoundary>
       ) : (
         placeholder
       )}
+      <SeatProps stateRef={st} />
     </group>
   );
 }
