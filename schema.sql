@@ -212,21 +212,23 @@ alter publication supabase_realtime add table public.cafe_seats;  -- 若回報�
 create extension if not exists pg_cron;
 select cron.schedule('release-stale-seats', '* * * * *', $$select public.release_stale_seats(90);$$);
 
--- ---------- 10. 範例資料：1 間咖啡廳、6 個座位（兩排，面對面） ----------
+-- ---------- 10. 範例資料：1 間咖啡廳、12 個座位 ----------
+-- A 排(z=-2.2) 與 B 排(z=0.2) 面對面併桌；C 排(z=3.4) 與 D 排(z=5.8) 面對面併桌
+-- rot_y：0 = 面向 +Z，3.14159 = 面向 -Z
 with c as (
   insert into public.cafes (slug, name, description)
-  values ('main-street', '街角自習咖啡廳', '安靜的 25 分鐘專注區')
-  on conflict (slug) do update set name = excluded.name
+  values ('main-street', '街角自習咖啡廳', '暖暖的木質調，一起安靜讀書')
+  on conflict (slug) do update set name = excluded.name, description = excluded.description
   returning id
 )
 insert into public.cafe_seats (cafe_id, seat_index, pos_x, pos_y, pos_z, rot_y)
 select c.id, s.i, s.x, 0.45, s.z, s.r
 from c, (values
-  (0, -3.0, -1.5, 0.0),
-  (1, -1.0, -1.5, 0.0),
-  (2,  1.0, -1.5, 0.0),
-  (3,  3.0, -1.5, 0.0),
-  (4, -2.0,  2.0, 3.14159),
-  (5,  2.0,  2.0, 3.14159)
+  (0, -3.6, -2.2, 0.0),     (1, -1.2, -2.2, 0.0),     (2, 1.2, -2.2, 0.0),     (3, 3.6, -2.2, 0.0),
+  (4, -3.6,  0.2, 3.14159), (5, -1.2,  0.2, 3.14159), (6, 1.2,  0.2, 3.14159), (7, 3.6,  0.2, 3.14159),
+  (8, -1.2,  3.4, 0.0),     (9,  1.2,  3.4, 0.0),
+  (10, -1.2, 5.8, 3.14159), (11, 1.2,  5.8, 3.14159)
 ) as s(i, x, z, r)
-on conflict (cafe_id, seat_index) do nothing;
+-- 已有舊座位（舊版 6 個）時：只更新座標，不動佔用者狀態
+on conflict (cafe_id, seat_index) do update
+  set pos_x = excluded.pos_x, pos_y = excluded.pos_y, pos_z = excluded.pos_z, rot_y = excluded.rot_y;
