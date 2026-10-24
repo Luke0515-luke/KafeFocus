@@ -35,7 +35,7 @@ function Lights() {
  * @param currentUserId 目前登入者，用來標示「你」
  * @param onSeatSelect  點擊空位光球時呼叫 (seat) => void
  */
-export default function Cafe3DScene({ seats = [], currentUserId, onSeatSelect, className }) {
+export default function CafeScene({ seats = [], currentUserId, onSeatSelect, className }) {
   // 座位資料一到就開始下載頭像，等角色真的渲染時多半已在快取裡
   useEffect(() => {
     seats.forEach((s) => preloadAvatar(s.occupant_avatar_url));
