@@ -18,10 +18,10 @@ export default function AuthGate({ children }) {
 
   // AuthPanel 用 h-full 置中，所以外層要給它高度與深色底
   if (session === undefined) {
-    return <div className="grid h-screen place-items-center bg-stone-900 text-stone-400">載入中…</div>;
+    return <div className="grid h-[100dvh] place-items-center bg-stone-900 text-stone-400">載入中…</div>;
   }
   if (!session) {
-    return <div className="h-screen bg-stone-900 text-stone-100"><AuthPanel /></div>;
+    return <div className="h-[100dvh] bg-stone-900 text-stone-100"><AuthPanel /></div>;
   }
   return children(session);
 }
