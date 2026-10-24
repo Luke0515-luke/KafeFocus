@@ -65,7 +65,7 @@ function WoodChair({ seatY, leather }) {
   );
 }
 
-function BistroChair({ seatY }) {
+function BistroChair({ seatY, wood = false }) {
   const legH = seatY - 0.04;
   return (
     <group>
@@ -76,13 +76,13 @@ function BistroChair({ seatY }) {
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z]) => (
         <mesh key={`${x}${z}`} position={[x * 0.14, legH / 2, z * 0.14]} castShadow>
           <cylinderGeometry args={[0.009, 0.009, legH, 8]} />
-          <meshStandardMaterial {...METAL} />
+          <meshStandardMaterial {...(wood ? DARK_WOOD : METAL)} />
         </mesh>
       ))}
       {/* 包住背部的弧形椅背 */}
       <mesh position={[0, seatY + 0.2, 0]} castShadow>
         <cylinderGeometry args={[0.2, 0.2, 0.2, 20, 1, true, Math.PI - 0.95, 1.9]} />
-        <meshStandardMaterial {...METAL} side={2} />
+        <meshStandardMaterial {...(wood ? { color: '#3b2416', roughness: 0.55 } : METAL)} side={2} />
       </mesh>
     </group>
   );
@@ -143,12 +143,31 @@ function Armchair({ seatY, leather }) {
   );
 }
 
+function BoothSeat({ seatY, leather }) {
+  return (
+    <group>
+      <mesh position={[0, (seatY - 0.14) / 2, -0.02]} castShadow>
+        <boxGeometry args={[1.2, seatY - 0.14, 0.6]} />
+        <meshStandardMaterial {...DARK_WOOD} />
+      </mesh>
+      <RoundedBox args={[1.2, 0.14, 0.62]} radius={0.05} smoothness={3} position={[0, seatY - 0.07, -0.02]} castShadow>
+        <meshStandardMaterial color={leather} roughness={0.45} />
+      </RoundedBox>
+      <RoundedBox args={[1.2, 0.72, 0.14]} radius={0.06} smoothness={3} position={[0, seatY + 0.36, -0.38]} castShadow>
+        <meshStandardMaterial color={leather} roughness={0.45} />
+      </RoundedBox>
+    </group>
+  );
+}
+
 function Chair({ seat }) {
   const style = seatStyle(seat);
   const leather = LEATHERS[seat.seat_index % LEATHERS.length];
   const y = seat.pos_y;
   if (style === 'stool') return <Stool seatY={y} leather={leather} />;
   if (style === 'bistro') return <BistroChair seatY={y} />;
+  if (style === 'bentwood') return <BistroChair seatY={y} wood />;
+  if (style === 'booth') return <BoothSeat seatY={y} leather={leather} />;
   if (style === 'industrial') return <IndustrialChair seatY={y} />;
   if (style === 'armchair') return <Armchair seatY={y} leather={leather} />;
   return <WoodChair seatY={y} leather={leather} />;
