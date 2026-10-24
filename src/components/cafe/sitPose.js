@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
-/** Q 版比例：頭放大。想更寫實就調成 1，更可愛可到 1.5。 */
-export const CHIBI_HEAD_SCALE = 1.35;
+/** Q 版比例：頭放大。1 = 完全寫實；想要更 Q 可調到 1.3 以上。 */
+export const CHIBI_HEAD_SCALE = 1.12;
 
 const _p1 = new THREE.Vector3();
 const _p2 = new THREE.Vector3();
