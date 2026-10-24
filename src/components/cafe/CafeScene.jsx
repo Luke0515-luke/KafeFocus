@@ -4,6 +4,7 @@ import { OrbitControls } from '@react-three/drei';
 import CafeDecor from './CafeDecor';
 import Seat3D from './Seat3D';
 import UserAvatar3D, { preloadAvatar } from './UserAvatar3D';
+import WalkersLayer from './WalkersLayer';
 import { THEMES } from '../../config/themes';
 
 // 燈光全部來自主題（src/config/themes.js）。太暗就調高該主題的 ambient / hemi / key，太亮就調低。
@@ -34,8 +35,15 @@ function Lights({ theme }) {
  * @param currentUserId 目前登入者，用來標示「你」
  * @param onSeatSelect  點擊空位光球時呼叫 (seat) => void
  * @param theme         咖啡廳主題（src/config/themes.js）
+ * @param players       usePlayers 的回傳值：站著 / 走路的角色、聊天泡泡
+ * @param selfName      自己的顯示名稱（站著時頭上的名牌）
+ * @param selfAvatarUrl 自己的頭像網址
+ * @param onFloorClick  點地板 (x, z) => void：走過去
  */
-export default function CafeScene({ seats = [], currentUserId, onSeatSelect, theme = THEMES.roast, className }) {
+export default function CafeScene({
+  seats = [], currentUserId, onSeatSelect, theme = THEMES.roast, className,
+  players, selfName, selfAvatarUrl, onFloorClick,
+}) {
   useEffect(() => {
     seats.forEach((s) => preloadAvatar(s.occupant_avatar_url));
   }, [seats]);
@@ -51,9 +59,25 @@ export default function CafeScene({ seats = [], currentUserId, onSeatSelect, the
         {seats.map((seat) => (
           <group key={seat.id}>
             <Seat3D seat={seat} occupied={!!seat.occupant_id} onSelect={onSeatSelect} />
-            {seat.occupant_id && <UserAvatar3D seat={seat} isSelf={seat.occupant_id === currentUserId} />}
+            {seat.occupant_id && (
+              <UserAvatar3D seat={seat} isSelf={seat.occupant_id === currentUserId} bubble={players?.bubbles?.[seat.occupant_id]} />
+            )}
           </group>
         ))}
+
+        {/* 看不見的地板：點一下就走過去（拖曳轉鏡頭時 delta 很大，不算點擊） */}
+        {onFloorClick && (
+          <mesh
+            rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 2]}
+            onClick={(e) => { if (e.delta > 6) return; e.stopPropagation(); onFloorClick(e.point.x, e.point.z); }}
+          >
+            <planeGeometry args={[18, 14]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          </mesh>
+        )}
+        {players && (
+          <WalkersLayer players={players} seats={seats} currentUserId={currentUserId} selfName={selfName} selfAvatarUrl={selfAvatarUrl} />
+        )}
 
         {/* 左牆與後牆是實心的，所以限制鏡頭不能繞到牆後面 */}
         <OrbitControls
