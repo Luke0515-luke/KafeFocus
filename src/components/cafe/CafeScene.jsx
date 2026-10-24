@@ -1,83 +1,72 @@
-import { useEffect, useState } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
-import UserAvatar3D, { preloadAvatar } from "./UserAvatar3D";
+import { useEffect } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
+import CafeDecor from './CafeDecor';
+import Seat3D from './Seat3D';
+import UserAvatar3D, { preloadAvatar } from './UserAvatar3D';
 
-function Chair({ seat, mine, onClick }) {
-  const [hover, setHover] = useState(false);
-  const empty = !seat.occupant_id;
-  const color = mine ? "#f0a35e" : empty ? (hover ? "#d6a15f" : "#7a5a3a") : "#5b4630";
+const BG = '#3a2a22';
 
+function Lights() {
   return (
-    <group position={[seat.pos_x, seat.pos_y, seat.pos_z]} rotation={[0, seat.rot_y, 0]}>
-      <mesh
-        position={[0, -0.03, 0]}
+    <>
+      <ambientLight intensity={0.75} color="#ffe9d2" />
+      <hemisphereLight args={['#fff1dc', '#8a6a4f', 0.55]} />
+      {/* 從窗外斜射進來的暖陽 */}
+      <directionalLight
+        position={[4, 9, 8]}
+        intensity={1.4}
+        color="#ffdcae"
         castShadow
-        receiveShadow
-        onClick={(e) => { e.stopPropagation(); if (empty) onClick(seat); }}
-        onPointerOver={(e) => { e.stopPropagation(); if (empty) { setHover(true); document.body.style.cursor = "pointer"; } }}
-        onPointerOut={() => { setHover(false); document.body.style.cursor = "auto"; }}
-      >
-        <boxGeometry args={[0.5, 0.06, 0.5]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
-      <mesh position={[0, 0.3, -0.24]} castShadow>
-        <boxGeometry args={[0.5, 0.55, 0.05]} />
-        <meshStandardMaterial color="#4a3826" />
-      </mesh>
-      {[[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]].map(([x, z]) => (
-        <mesh key={`${x}${z}`} position={[x, -0.25, z]} castShadow>
-          <boxGeometry args={[0.04, 0.4, 0.04]} />
-          <meshStandardMaterial color="#3a2c1e" />
-        </mesh>
-      ))}
-    </group>
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-11}
+        shadow-camera-right={11}
+        shadow-camera-top={11}
+        shadow-camera-bottom={-8}
+        shadow-bias={-0.0004}
+      />
+    </>
   );
 }
 
-function Table() {
-  return (
-    <group position={[0, 0, 0.25]}>
-      <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
-        <boxGeometry args={[9, 0.08, 1.6]} />
-        <meshStandardMaterial color="#a67c52" />
-      </mesh>
-      {[-4.2, 4.2].map((x) => (
-        <mesh key={x} position={[x, 0.37, 0]} castShadow>
-          <boxGeometry args={[0.1, 0.74, 1.3]} />
-          <meshStandardMaterial color="#6b4c30" />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-export default function CafeScene({ seats, mySeatId, onSeatClick }) {
+/**
+ * 3D 咖啡廳主場景（純呈現，不碰 Supabase）。
+ * @param seats        來自 useCafeRealtime 的座位陣列
+ * @param currentUserId 目前登入者，用來標示「你」
+ * @param onSeatSelect  點擊空位光球時呼叫 (seat) => void
+ */
+export default function Cafe3DScene({ seats = [], currentUserId, onSeatSelect, className }) {
+  // 座位資料一到就開始下載頭像，等角色真的渲染時多半已在快取裡
   useEffect(() => {
-    seats.forEach((s) => { if (s.occupant_avatar_url) preloadAvatar(s.occupant_avatar_url); });
+    seats.forEach((s) => preloadAvatar(s.occupant_avatar_url));
   }, [seats]);
 
   return (
-    <Canvas shadows camera={{ position: [0, 5, 9], fov: 45 }} className="!h-full !w-full">
-      <color attach="background" args={["#1c1917"]} />
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[4, 8, 5]} intensity={1.1} castShadow shadow-mapSize={[1024, 1024]} />
-      <pointLight position={[0, 3, 0.25]} intensity={8} color="#ffcf8a" />
+    <div className={className ?? 'h-full w-full'}>
+      <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 7.5, 12.5], fov: 45 }} gl={{ antialias: true }}>
+        <color attach="background" args={[BG]} />
+        <fog attach="fog" args={[BG, 20, 38]} />
+        <Lights />
+        <CafeDecor />
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[20, 14]} />
-        <meshStandardMaterial color="#3b2f25" />
-      </mesh>
+        {seats.map((seat) => (
+          <group key={seat.id}>
+            <Seat3D seat={seat} occupied={!!seat.occupant_id} onSelect={onSeatSelect} />
+            {seat.occupant_id && <UserAvatar3D seat={seat} isSelf={seat.occupant_id === currentUserId} />}
+          </group>
+        ))}
 
-      <Table />
-      {seats.map((s) => (
-        <Chair key={s.id} seat={s} mine={s.id === mySeatId} onClick={onSeatClick} />
-      ))}
-      {seats.filter((s) => s.occupant_id).map((s) => (
-        <UserAvatar3D key={s.id} seat={s} isSelf={s.id === mySeatId} />
-      ))}
-
-      <OrbitControls target={[0, 0.9, 0.25]} maxPolarAngle={Math.PI / 2.1} minDistance={4} maxDistance={14} />
-    </Canvas>
+        <OrbitControls
+          makeDefault
+          enablePan={false}
+          target={[0, 0.9, 1.2]}
+          minDistance={4}
+          maxDistance={18}
+          maxPolarAngle={Math.PI / 2.15}
+          minAzimuthAngle={-Math.PI / 3}
+          maxAzimuthAngle={Math.PI / 3}
+        />
+      </Canvas>
+    </div>
   );
 }
