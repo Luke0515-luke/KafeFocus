@@ -95,25 +95,51 @@ function BarTable({ t }) {
 function SlabTable({ t }) {
   const { length: L, depth: D, height: h } = t;
   return (
-    <group position={t.position}>
+    <group position={t.position} rotation={[0, t.rotationY ?? 0, 0]}>
       <RoundedBox args={[L, 0.07, D]} radius={0.015} smoothness={2} position={[0, h - 0.035, 0]} castShadow receiveShadow>
         <meshStandardMaterial color="#5a3a24" roughness={0.5} />
       </RoundedBox>
       {[-1, 1].map((s) => (
-        <mesh key={s} position={[s * (L / 2 - 0.35), (h - 0.07) / 2, 0]} castShadow>
+        <mesh key={s} position={[s * (L / 2 - 0.3), (h - 0.07) / 2, 0]} castShadow>
           <boxGeometry args={[0.05, h - 0.07, D * 0.8]} />
           <meshStandardMaterial {...BLACK_METAL} />
         </mesh>
       ))}
       <mesh position={[0, 0.25, 0]} castShadow>
-        <boxGeometry args={[L - 0.7, 0.04, 0.05]} />
+        <boxGeometry args={[Math.max(0.2, L - 0.6), 0.04, 0.05]} />
         <meshStandardMaterial {...BLACK_METAL} />
       </mesh>
-      <Cup position={[-1.0, h, 0.3]} />
-      <Cup position={[0.7, h, -0.3]} />
+      <Cup position={[-L * 0.3, h, D * 0.2]} />
+      <Cup position={[L * 0.22, h, -D * 0.2]} />
       <Candle position={[0, h, 0]} />
-      <Books position={[-0.35, h, -0.25]} rotation={0.3} />
-      <Vase position={[1.3, h, 0.1]} />
+      {L > 3 && (
+        <>
+          <Books position={[-0.35, h, -0.25]} rotation={0.3} />
+          <Vase position={[1.3, h, 0.1]} />
+        </>
+      )}
+    </group>
+  );
+}
+
+function CafeRoundTable({ t }) {
+  const { radius: r, height: h } = t;
+  return (
+    <group position={t.position}>
+      <mesh position={[0, h - 0.02, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[r, r, 0.04, 40]} />
+        <meshStandardMaterial color="#5a3a24" roughness={0.5} />
+      </mesh>
+      <mesh position={[0, (h - 0.04) / 2, 0]} castShadow>
+        <cylinderGeometry args={[0.03, 0.04, h - 0.04, 12]} />
+        <meshStandardMaterial {...BLACK_METAL} />
+      </mesh>
+      <mesh position={[0, 0.015, 0]} receiveShadow>
+        <cylinderGeometry args={[0.22, 0.24, 0.03, 28]} />
+        <meshStandardMaterial {...BLACK_METAL} />
+      </mesh>
+      <Cup position={[0.12, h, 0.1]} />
+      <Candle position={[-0.1, h, -0.08]} />
     </group>
   );
 }
@@ -198,6 +224,7 @@ export default function Tables({ textures }) {
         if (t.type === 'slab') return <SlabTable key={t.id} t={t} />;
         if (t.type === 'marble') return <MarbleTable key={t.id} t={t} marble={marble} />;
         if (t.type === 'square') return <SquareTable key={t.id} t={t} />;
+        if (t.type === 'cafe') return <CafeRoundTable key={t.id} t={t} />;
         return <LowTable key={t.id} t={t} />;
       })}
     </group>
