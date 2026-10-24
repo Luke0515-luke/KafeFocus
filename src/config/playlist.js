@@ -19,4 +19,12 @@ export const PLAYLIST = [
     licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/',
     page: 'https://freemusicarchive.org/music/Pistol_Jazz/Chic/swallow/',
   },
+  {
+    src: '/music/winter-snow.mp3',
+    title: 'Winter Snow',
+    artist: 'Pistol Jazz',
+    license: 'CC BY',
+    licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+    page: 'https://freemusicarchive.org/music/Pistol_Jazz/Chic/winter_snow/',
+  },
 ];
