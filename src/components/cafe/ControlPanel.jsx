@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, CalendarDays, Coffee, LogOut, Users, Wifi, WifiOff } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarDays, ChevronDown, ChevronUp, Coffee, LogOut, Users, Wifi, WifiOff } from 'lucide-react';
+import { formatMMSS, useCountdown } from '../../hooks/useCountdown';
 import { sanitizeAvatarUrl } from '../../lib/avatarUrl';
 
 const FOCUS_KEY = 'kf_focus_min';
@@ -8,9 +9,13 @@ const PRESETS = [[25, 5], [50, 10], [90, 15]];
 
 const lsGet = (k, d) => { try { const v = Number(window.localStorage.getItem(k)); return Number.isFinite(v) && v > 0 ? v : d; } catch { return d; } };
 const lsSet = (k, v) => { try { window.localStorage.setItem(k, String(v)); } catch { /* 忽略 */ } };
+const isWide = () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
 const clampMin = (v, fallback) => Math.min(120, Math.max(1, Math.round(Number(v)) || fallback));
 
-/** 左上角控制面板：返回大廳、番茄鐘（可自訂分鐘）、頭像、行事曆、登出。純 UI，動作都由 props 傳入。 */
+/**
+ * 左上角控制面板：返回大廳、番茄鐘（可自訂分鐘）、頭像、行事曆、登出。純 UI，動作都由 props 傳入。
+ * 手機（窄螢幕）預設收成一條小列，只剩返回、人數與倒數，免得整個面板擋住咖啡廳；點右側箭頭才展開。
+ */
 export default function ControlPanel({
   cafeName, profile, mySeat, connection, onlineCount, notice,
   onSetStatus, onLeave, onSaveAvatar, onBack, onSignOut, onOpenCalendar,
@@ -21,6 +26,8 @@ export default function ControlPanel({
   const [avatarInput, setAvatarInput] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(isWide);
+  const remaining = useCountdown(mySeat?.phase_ends_at);
 
   useEffect(() => { setAvatarInput(profile?.avatar_url ?? ''); }, [profile?.avatar_url]);
 
@@ -35,8 +42,9 @@ export default function ControlPanel({
     else { setBreakMin(value); lsSet(BREAK_KEY, clampMin(value, 5)); }
   };
 
-  const startFocus = () => run(() => onSetStatus('studying', task, clampMin(focusMin, 25) * 60));
-  const startBreak = () => run(() => onSetStatus('break', '', clampMin(breakMin, 5) * 60));
+  const collapseOnPhone = () => { if (!isWide()) setOpen(false); };
+  const startFocus = () => run(async () => { await onSetStatus('studying', task, clampMin(focusMin, 25) * 60); collapseOnPhone(); });
+  const startBreak = () => run(async () => { await onSetStatus('break', '', clampMin(breakMin, 5) * 60); collapseOnPhone(); });
 
   const saveAvatar = () => run(async () => {
     const trimmed = avatarInput.trim();
@@ -51,12 +59,33 @@ export default function ControlPanel({
   const btn = 'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition disabled:opacity-50';
   const input = 'w-full rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-amber-500';
 
+  if (!open) {
+    const studying = mySeat?.status === 'studying';
+    return (
+      <div className="absolute left-2 top-2 z-20 flex max-w-[calc(100vw-1rem)] items-center gap-1 rounded-full bg-stone-900/85 py-1 pl-1 pr-1 text-xs text-stone-300 shadow-lg ring-1 ring-stone-700 backdrop-blur sm:left-4 sm:top-4">
+        <button type="button" onClick={onBack} aria-label="回到咖啡廳大廳" className="grid h-8 w-8 place-items-center rounded-full hover:bg-stone-800"><ArrowLeft size={16} /></button>
+        <span className="flex items-center gap-1 px-1"><Users size={13} />{onlineCount}</span>
+        <span className={online ? 'text-emerald-400' : 'text-rose-400'}>{online ? <Wifi size={13} /> : <WifiOff size={13} />}</span>
+        {mySeat && (
+          <span className={`flex items-center gap-1 rounded-full px-2 py-1 font-mono text-sm font-semibold ${studying ? 'bg-amber-600/90 text-stone-950' : 'bg-emerald-800/90 text-emerald-50'}`}>
+            {studying ? <BookOpen size={13} /> : <Coffee size={13} />}
+            {remaining === 0 ? '時間到' : formatMMSS(remaining)}
+          </span>
+        )}
+        <button type="button" onClick={() => setOpen(true)} aria-label="展開設定" className="grid h-8 w-8 place-items-center rounded-full hover:bg-stone-800"><ChevronDown size={16} /></button>
+      </div>
+    );
+  }
+
   return (
-    <div className="absolute left-4 top-4 max-h-[calc(100vh-2rem)] w-80 max-w-[calc(100vw-2rem)] space-y-3 overflow-y-auto rounded-2xl bg-stone-900/85 p-4 text-stone-300 shadow-xl ring-1 ring-stone-700 backdrop-blur">
+    <div className="absolute left-2 top-2 z-20 max-h-[calc(100dvh-1rem)] w-80 max-w-[calc(100vw-1rem)] space-y-3 overflow-y-auto rounded-2xl bg-stone-900/90 p-4 text-stone-300 shadow-xl ring-1 ring-stone-700 backdrop-blur sm:left-4 sm:top-4 sm:max-h-[calc(100dvh-2rem)]">
       <div>
-        <button type="button" onClick={onBack} className="mb-2 flex items-center gap-1 text-xs text-stone-400 hover:text-stone-100">
-          <ArrowLeft size={14} /> 回到咖啡廳大廳
-        </button>
+        <div className="mb-2 flex items-center justify-between">
+          <button type="button" onClick={onBack} className="flex items-center gap-1 text-xs text-stone-400 hover:text-stone-100">
+            <ArrowLeft size={14} /> 回到咖啡廳大廳
+          </button>
+          <button type="button" onClick={() => setOpen(false)} aria-label="收起設定" className="grid h-7 w-7 place-items-center rounded-lg text-stone-400 hover:bg-stone-800 hover:text-stone-100"><ChevronUp size={16} /></button>
+        </div>
         <div className="flex items-center justify-between gap-2">
           <div className="truncate font-semibold text-stone-100">{cafeName ?? '咖啡廳'}</div>
           <div className="flex shrink-0 items-center gap-2 text-xs">
@@ -69,7 +98,7 @@ export default function ControlPanel({
         </div>
       </div>
 
-      {!mySeat && <p className="text-sm">點場景裡發光的小圓點，就能坐下開始讀書。</p>}
+      {!mySeat && <p className="text-sm">點地板就能走動，點發光的小圓點，角色會走過去坐下開始讀書。</p>}
 
       {/* 時間設定（入座前後都能調整） */}
       <div className="space-y-2">
@@ -105,7 +134,7 @@ export default function ControlPanel({
             </button>
           </div>
           <button type="button" disabled={busy} onClick={() => run(onLeave)} className={`${btn} w-full bg-stone-800 text-stone-300 ring-1 ring-stone-600 hover:bg-stone-700`}>
-            離座
+            離座（起身走走）
           </button>
         </div>
       )}
