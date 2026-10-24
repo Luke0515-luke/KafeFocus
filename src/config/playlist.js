@@ -14,10 +14,9 @@ export const PLAYLIST = [
   {
     src: '/music/swallow.mp3',
     title: 'Swallow',
-    artist: 'Pistol Jazz'
+    artist: 'Pistol Jazz',
     license: 'CC BY-SA 3.0',
     licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/',
     page: 'https://freemusicarchive.org/music/Pistol_Jazz/Chic/swallow/',
-  },  
-  
+  },
 ];
