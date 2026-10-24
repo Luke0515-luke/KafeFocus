@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 
+/** Q 版比例：頭放大。想更寫實就調成 1，更可愛可到 1.5。 */
+export const CHIBI_HEAD_SCALE = 1.35;
+
 const _p1 = new THREE.Vector3();
 const _p2 = new THREE.Vector3();
 const _dir = new THREE.Vector3();
@@ -58,5 +61,8 @@ export function applySittingPose(root) {
     };
   }
 
-  return { hipHeight, headHeight, nod };
+  // Q 版：放大頭部（頭髮、臉、配件都掛在 Head 骨底下，會一起放大）
+  if (head) head.scale.setScalar(CHIBI_HEAD_SCALE);
+
+  return { hipHeight, headHeight: headHeight + 0.1 * (CHIBI_HEAD_SCALE - 1) * 3, nod };
 }
