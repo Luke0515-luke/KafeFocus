@@ -11,6 +11,7 @@ export const PLAYLIST = [
     licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/',
     page: 'https://freemusicarchive.org/music/Quantum_Jazz/End_of_Line/07_-_Quantum_Jazz_-_Orbiting_A_Distant_Planet/',
   },
+  {
     src: '/music/swallow.mp3',
     title: 'Swallow',
     artist: 'Pistol Jazz'
