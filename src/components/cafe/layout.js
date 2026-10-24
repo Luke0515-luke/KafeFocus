@@ -53,6 +53,12 @@ export const TABLES = [
   { id: 'hightop',    type: 'slab',   position: [7.6, 0, 1.5],   rotationY: PI / 2, length: 2.2, depth: 0.7, height: 1.05 },
 ];
 
+/** 大型植栽位置 [x, y, z, 縮放]（CafeDecor 擺設、nav.js 尋路避障共用） */
+export const PLANT_SPOTS = [
+  [-8.3, 0, -4.3, 1.5], [8.3, 0, 6.0, 1.3], [8.3, 0, -1.2, 1.3], [-1.2, 0, 8.3, 1.2],
+  [4.0, 0, 8.4, 1.3], [-8.3, 0, 5.0, 1.2], [-5.0, 0, 8.3, 1.3],
+];
+
 const STYLE_BY_INDEX = Object.fromEntries(SEAT_LAYOUT.map((s) => [s.i, s.style]));
 
 /** 依座位編號決定椅子款式 */
