@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { boneDist, makeSwing } from './rigUtils';
 
 /** Q 版比例：頭放大。1 = 完全寫實；想要更 Q 可調到 1.3 以上。 */
 export const CHIBI_HEAD_SCALE = 1.12;
@@ -64,5 +65,19 @@ export function applySittingPose(root) {
   // Q 版：放大頭部（頭髮、臉、配件都掛在 Head 骨底下，會一起放大）
   if (head) head.scale.setScalar(CHIBI_HEAD_SCALE);
 
-  return { hipHeight, headHeight: headHeight + 0.1 * (CHIBI_HEAD_SCALE - 1) * 3, nod };
+  // 手臂 IK 用：坐姿擺好之後的基準旋轉與骨長（reachArm 每幀都從這個基準出發），以及上身前傾用的脊椎
+  root.updateMatrixWorld(true);
+  const limb = (side) => {
+    const arm = bone(`${side}Arm`); const fore = bone(`${side}ForeArm`); const hand = bone(`${side}Hand`);
+    if (!arm || !fore || !hand) return null;
+    return {
+      arm, fore, hand,
+      a: boneDist(arm, fore), b: boneDist(fore, hand),
+      baseArm: arm.quaternion.clone(), baseFore: fore.quaternion.clone(),
+    };
+  };
+  const limbs = { L: limb('Left'), R: limb('Right') };
+  const lean = { spine: makeSwing(root, 'Spine'), spine1: makeSwing(root, 'Spine1') };
+
+  return { hipHeight, headHeight: headHeight + 0.1 * (CHIBI_HEAD_SCALE - 1) * 3, nod, limbs, lean };
 }
