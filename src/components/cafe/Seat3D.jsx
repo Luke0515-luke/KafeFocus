@@ -1,92 +1,167 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html, RoundedBox } from '@react-three/drei';
-import { useRef } from 'react';
+import { seatStyle } from './layout';
 
-const CUSHIONS = ['#e07a5f', '#f2cc8f', '#81b29a', '#a0c4ff', '#cdb4db', '#ffafcc'];
-const WOOD = '#9c6b43';
+const METAL = { color: '#1b1b1d', roughness: 0.45, metalness: 0.7 };
+const BRASS = { color: '#a8844f', roughness: 0.35, metalness: 0.85 };
+const DARK_WOOD = { color: '#2c1b11', roughness: 0.6 };
+const LEATHERS = ['#6b3f26', '#5a3420', '#4b2b18', '#74482c'];
 
-function Chair({ seatY, cushion }) {
-  const legH = seatY - 0.12;
+/* 原點 = 椅面中心落在地板上的位置；seatY = 椅面高度 */
+
+function Stool({ seatY, leather }) {
+  const legH = seatY - 0.07;
   return (
     <group>
-      <RoundedBox args={[0.5, 0.05, 0.5]} radius={0.02} smoothness={2} position={[0, seatY - 0.095, 0]} castShadow receiveShadow>
-        <meshStandardMaterial color={WOOD} roughness={0.8} />
+      <mesh position={[0, seatY - 0.035, 0]} castShadow>
+        <cylinderGeometry args={[0.19, 0.19, 0.07, 28]} />
+        <meshStandardMaterial color={leather} roughness={0.55} />
+      </mesh>
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z]) => (
+        <mesh key={`${x}${z}`} position={[x * 0.13, legH / 2, z * 0.13]} castShadow>
+          <cylinderGeometry args={[0.011, 0.011, legH, 8]} />
+          <meshStandardMaterial {...METAL} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.28, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.18, 0.011, 8, 28]} />
+        <meshStandardMaterial {...METAL} />
+      </mesh>
+    </group>
+  );
+}
+
+function WoodChair({ seatY, leather }) {
+  const legH = seatY - 0.06;
+  return (
+    <group>
+      <mesh position={[0, seatY - 0.07, 0]} castShadow>
+        <boxGeometry args={[0.46, 0.04, 0.46]} />
+        <meshStandardMaterial {...DARK_WOOD} />
+      </mesh>
+      <RoundedBox args={[0.42, 0.05, 0.42]} radius={0.02} smoothness={3} position={[0, seatY - 0.025, 0]} castShadow>
+        <meshStandardMaterial color={leather} roughness={0.55} />
       </RoundedBox>
-      {/* 圓潤的椅墊 */}
-      <RoundedBox args={[0.46, 0.07, 0.46]} radius={0.03} smoothness={3} position={[0, seatY - 0.035, 0]} castShadow>
-        <meshStandardMaterial color={cushion} roughness={1} />
-      </RoundedBox>
-      <RoundedBox args={[0.48, 0.5, 0.05]} radius={0.025} smoothness={2} position={[0, seatY + 0.25, -0.235]} castShadow>
-        <meshStandardMaterial color={WOOD} roughness={0.8} />
-      </RoundedBox>
-      <RoundedBox args={[0.34, 0.22, 0.05]} radius={0.04} smoothness={3} position={[0, seatY + 0.27, -0.2]} castShadow>
-        <meshStandardMaterial color={cushion} roughness={1} />
-      </RoundedBox>
-      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => (
-        <mesh key={`${sx}${sz}`} position={[sx * 0.21, legH / 2, sz * 0.21]} castShadow>
-          <cylinderGeometry args={[0.022, 0.018, legH, 8]} />
-          <meshStandardMaterial color="#6e4528" />
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z]) => (
+        <mesh key={`${x}${z}`} position={[x * 0.2, legH / 2, z * 0.2]} castShadow>
+          <boxGeometry args={[0.04, legH, 0.04]} />
+          <meshStandardMaterial {...DARK_WOOD} />
+        </mesh>
+      ))}
+      {[-1, 1].map((x) => (
+        <mesh key={x} position={[x * 0.2, seatY + 0.2, -0.21]} castShadow>
+          <boxGeometry args={[0.04, 0.5, 0.04]} />
+          <meshStandardMaterial {...DARK_WOOD} />
+        </mesh>
+      ))}
+      {[0.28, 0.4].map((dy) => (
+        <mesh key={dy} position={[0, seatY + dy, -0.21]} castShadow>
+          <boxGeometry args={[0.42, 0.07, 0.025]} />
+          <meshStandardMaterial {...DARK_WOOD} />
         </mesh>
       ))}
     </group>
   );
 }
 
-function Desk({ seatY, index }) {
-  const top = seatY + 0.3;          // 桌面高度
-  const z = 0.8;                    // 在座位前方
+function BistroChair({ seatY }) {
+  const legH = seatY - 0.04;
   return (
-    <group position={[0, 0, z]}>
-      <RoundedBox args={[1.05, 0.05, 0.62]} radius={0.02} smoothness={2} position={[0, top, 0]} castShadow receiveShadow>
-        <meshStandardMaterial color="#c08a5b" roughness={0.7} />
-      </RoundedBox>
-      <mesh position={[0, top / 2, 0]} castShadow>
-        <cylinderGeometry args={[0.04, 0.05, top, 10]} />
-        <meshStandardMaterial color="#6e4528" />
+    <group>
+      <mesh position={[0, seatY - 0.02, 0]} castShadow>
+        <cylinderGeometry args={[0.2, 0.2, 0.035, 28]} />
+        <meshStandardMaterial color="#4a2f1e" roughness={0.6} />
       </mesh>
-      <mesh position={[0, 0.02, 0]} receiveShadow>
-        <cylinderGeometry args={[0.24, 0.26, 0.04, 20]} />
-        <meshStandardMaterial color="#6e4528" />
-      </mesh>
-      {/* 桌上小物：杯子 + 筆記本；每三張桌子放一盆小植物 */}
-      <group position={[0.32, top + 0.025, 0.05]}>
-        <mesh position={[0, 0.005, 0]}>
-          <cylinderGeometry args={[0.075, 0.075, 0.01, 16]} />
-          <meshStandardMaterial color="#fff6e8" />
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z]) => (
+        <mesh key={`${x}${z}`} position={[x * 0.14, legH / 2, z * 0.14]} castShadow>
+          <cylinderGeometry args={[0.009, 0.009, legH, 8]} />
+          <meshStandardMaterial {...METAL} />
         </mesh>
-        <mesh position={[0, 0.045, 0]} castShadow>
-          <cylinderGeometry args={[0.052, 0.042, 0.08, 16]} />
-          <meshStandardMaterial color={index % 2 ? '#f2a7a0' : '#9ec5d8'} />
-        </mesh>
-      </group>
-      <mesh position={[-0.15, top + 0.035, -0.02]} rotation={[0, 0.12, 0]} castShadow>
-        <boxGeometry args={[0.3, 0.02, 0.22]} />
-        <meshStandardMaterial color={['#e9c46a', '#8ab17d', '#e76f51'][index % 3]} />
+      ))}
+      {/* 包住背部的弧形椅背 */}
+      <mesh position={[0, seatY + 0.2, 0]} castShadow>
+        <cylinderGeometry args={[0.2, 0.2, 0.2, 20, 1, true, Math.PI - 0.95, 1.9]} />
+        <meshStandardMaterial {...METAL} side={2} />
       </mesh>
-      {index % 3 === 0 && (
-        <group position={[-0.4, top + 0.025, 0.18]}>
-          <mesh position={[0, 0.05, 0]} castShadow>
-            <cylinderGeometry args={[0.05, 0.04, 0.1, 12]} />
-            <meshStandardMaterial color="#fff6e8" />
-          </mesh>
-          <mesh position={[0, 0.14, 0]} castShadow>
-            <icosahedronGeometry args={[0.07, 1]} />
-            <meshStandardMaterial color="#7fb77e" flatShading />
-          </mesh>
-        </group>
-      )}
     </group>
   );
 }
 
-/** 一組座位 = 椅子 + 桌子 + （空位時）懸浮的互動光球 */
+function IndustrialChair({ seatY }) {
+  const legH = seatY - 0.04;
+  return (
+    <group>
+      <mesh position={[0, seatY - 0.018, 0]} castShadow>
+        <boxGeometry args={[0.42, 0.035, 0.42]} />
+        <meshStandardMaterial color="#6b4a30" roughness={0.75} />
+      </mesh>
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z]) => (
+        <mesh key={`${x}${z}`} position={[x * 0.19, legH / 2, z * 0.19]} castShadow>
+          <boxGeometry args={[0.025, legH, 0.025]} />
+          <meshStandardMaterial {...METAL} />
+        </mesh>
+      ))}
+      {[-1, 1].map((x) => (
+        <mesh key={x} position={[x * 0.19, seatY + 0.2, -0.19]} castShadow>
+          <boxGeometry args={[0.025, 0.46, 0.025]} />
+          <meshStandardMaterial {...METAL} />
+        </mesh>
+      ))}
+      <mesh position={[0, seatY + 0.3, -0.2]} castShadow>
+        <boxGeometry args={[0.4, 0.24, 0.02]} />
+        <meshStandardMaterial color="#6b4a30" roughness={0.75} />
+      </mesh>
+    </group>
+  );
+}
+
+function Armchair({ seatY, leather }) {
+  return (
+    <group>
+      <RoundedBox args={[0.8, 0.28, 0.82]} radius={0.05} smoothness={3} position={[0, 0.2, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color={leather} roughness={0.45} />
+      </RoundedBox>
+      <RoundedBox args={[0.52, 0.1, 0.56]} radius={0.04} smoothness={3} position={[0, seatY - 0.05, 0.05]} castShadow>
+        <meshStandardMaterial color={leather} roughness={0.4} />
+      </RoundedBox>
+      <RoundedBox args={[0.8, 0.62, 0.2]} radius={0.06} smoothness={3} position={[0, 0.52, -0.33]} castShadow>
+        <meshStandardMaterial color={leather} roughness={0.45} />
+      </RoundedBox>
+      {[-1, 1].map((x) => (
+        <RoundedBox key={x} args={[0.14, 0.3, 0.74]} radius={0.05} smoothness={3} position={[x * 0.33, 0.45, 0]} castShadow>
+          <meshStandardMaterial color={leather} roughness={0.45} />
+        </RoundedBox>
+      ))}
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z]) => (
+        <mesh key={`${x}${z}`} position={[x * 0.34, 0.03, z * 0.34]}>
+          <cylinderGeometry args={[0.02, 0.016, 0.06, 10]} />
+          <meshStandardMaterial {...BRASS} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function Chair({ seat }) {
+  const style = seatStyle(seat);
+  const leather = LEATHERS[seat.seat_index % LEATHERS.length];
+  const y = seat.pos_y;
+  if (style === 'stool') return <Stool seatY={y} leather={leather} />;
+  if (style === 'bistro') return <BistroChair seatY={y} />;
+  if (style === 'industrial') return <IndustrialChair seatY={y} />;
+  if (style === 'armchair') return <Armchair seatY={y} leather={leather} />;
+  return <WoodChair seatY={y} leather={leather} />;
+}
+
+/** 椅子 +（空位時）懸浮的互動光球。桌子由 Tables.jsx 統一擺放。 */
 export default function Seat3D({ seat, occupied, onSelect }) {
   const [hovered, setHovered] = useState(false);
   const marker = useRef();
+  const baseY = seat.pos_y + 0.8;
 
   useFrame(({ clock }) => {
-    if (marker.current) marker.current.position.y = 1.2 + Math.sin(clock.elapsedTime * 2 + seat.seat_index) * 0.06;
+    if (marker.current) marker.current.position.y = baseY + Math.sin(clock.elapsedTime * 2 + seat.seat_index) * 0.05;
   });
   useEffect(() => () => { document.body.style.cursor = 'auto'; }, []);
   useEffect(() => { if (occupied) { setHovered(false); document.body.style.cursor = 'auto'; } }, [occupied]);
@@ -99,24 +174,26 @@ export default function Seat3D({ seat, occupied, onSelect }) {
 
   return (
     <group position={[seat.pos_x, 0, seat.pos_z]} rotation={[0, seat.rot_y, 0]}>
-      <Chair seatY={seat.pos_y} cushion={CUSHIONS[seat.seat_index % CUSHIONS.length]} />
-      <Desk seatY={seat.pos_y} index={seat.seat_index} />
+      <Chair seat={seat} />
 
       {!occupied && (
-        <group ref={marker} position={[0, 1.2, 0]}>
+        <group ref={marker} position={[0, baseY, 0]}>
           <mesh>
-            <sphereGeometry args={[hovered ? 0.17 : 0.13, 20, 20]} />
-            <meshBasicMaterial color={hovered ? '#ffb86b' : '#ffe0a8'} toneMapped={false} />
+            <sphereGeometry args={[hovered ? 0.1 : 0.07, 20, 20]} />
+            <meshBasicMaterial color={hovered ? '#ffbe73' : '#e0a766'} toneMapped={false} />
           </mesh>
-          {/* 加大的隱形點擊範圍，手機也好點 */}
+          <mesh>
+            <ringGeometry args={[hovered ? 0.17 : 0.13, hovered ? 0.185 : 0.14, 32]} />
+            <meshBasicMaterial color="#e0a766" transparent opacity={0.55} toneMapped={false} depthWrite={false} />
+          </mesh>
           <mesh {...handlers}>
             <sphereGeometry args={[0.38, 12, 12]} />
             <meshBasicMaterial transparent opacity={0} depthWrite={false} />
           </mesh>
           {hovered && (
-            <Html center position={[0, 0.36, 0]} style={{ pointerEvents: 'none' }}>
-              <div className="pointer-events-none whitespace-nowrap rounded-full bg-white/95 px-3 py-1 text-sm font-medium text-stone-700 shadow">
-                坐這裡 ☕
+            <Html center position={[0, 0.3, 0]} style={{ pointerEvents: 'none' }}>
+              <div className="pointer-events-none whitespace-nowrap rounded-md bg-stone-900/90 px-3 py-1 text-sm text-stone-100 ring-1 ring-amber-700/50">
+                坐這裡
               </div>
             </Html>
           )}
