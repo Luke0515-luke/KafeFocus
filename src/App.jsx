@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import AuthGate from './components/AuthGate';
 import CafeLobby from './components/CafeLobby';
 import CalendarPanel from './components/CalendarPanel';
+import ChatPanel from './components/ChatPanel';
 import MusicPlayer from './components/MusicPlayer';
 import CafeScene from './components/cafe/CafeScene';
 import ControlPanel from './components/cafe/ControlPanel';
 import { useCafeRealtime } from './hooks/useCafeRealtime';
 import { useBackgroundMusic } from './hooks/useBackgroundMusic';
 import { useFocusLogger } from './hooks/useFocusLogger';
+import { usePlayers } from './hooks/usePlayers';
 import { PLAYLIST } from './config/playlist';
 import { getMeta, getTheme } from './config/themes';
 import { supabase } from './lib/supabaseClient';
@@ -57,10 +59,22 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar }) {
 
   useFocusLogger({ mySeat, userId, cafeId: cafe?.id });
 
-  const handleSeatSelect = useCallback(async (seat) => {
+  // 真正入座（走到椅子旁邊之後，或已經坐著要換位時呼叫）
+  const handleSit = useCallback(async (seat) => {
     setNotice('');
     try { await claimSeat(seat.id); } catch (e) { setNotice(e.message); }
   }, [claimSeat]);
+
+  // 站著 / 走動 / 聊天
+  const players = usePlayers({
+    cafeId: cafe?.id, userId, name: profile?.display_name, avatarUrl: profile?.avatar_url,
+    theme, mySeat, onSit: handleSit,
+  });
+  const handleSeatSelect = useCallback((seat) => { setNotice(''); players.sitAt(seat); }, [players]);
+  const handleFloorClick = useCallback((x, z) => {
+    if (mySeat) { setNotice('要先按「離座」站起來，才能在咖啡廳裡走動。'); return; }
+    players.walkTo(x, z);
+  }, [mySeat, players]);
 
   const handleSaveAvatar = useCallback(async (url) => {
     const { data, error: err } = await supabase
@@ -79,7 +93,7 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar }) {
 
   if (cafe === null) {
     return (
-      <div className="grid h-screen place-items-center bg-stone-900 text-stone-300">
+      <div className="grid h-[100dvh] place-items-center bg-stone-900 text-stone-300">
         <div className="space-y-3 text-center">
           <p>找不到這間咖啡廳。</p>
           {notice && <p className="text-xs text-rose-400">{notice}</p>}
@@ -90,8 +104,11 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar }) {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-stone-900">
-      <CafeScene seats={seats} currentUserId={userId} onSeatSelect={handleSeatSelect} theme={theme} />
+    <div className="relative h-[100dvh] w-screen overflow-hidden bg-stone-900">
+      <CafeScene
+        seats={seats} currentUserId={userId} onSeatSelect={handleSeatSelect} theme={theme}
+        players={players} selfName={profile?.display_name} selfAvatarUrl={profile?.avatar_url} onFloorClick={handleFloorClick}
+      />
       <ControlPanel
         cafeName={cafe?.name ?? getMeta(slug).name}
         profile={profile}
@@ -106,6 +123,7 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar }) {
         onSignOut={handleSignOut}
         onOpenCalendar={onOpenCalendar}
       />
+      <ChatPanel messages={players.messages} myId={userId} onSend={players.sendChat} />
       {(cafe === undefined || loading) && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center text-amber-100">載入咖啡廳中…</div>
       )}
