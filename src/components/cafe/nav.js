@@ -1,4 +1,4 @@
-import { SEAT_LAYOUT, TABLES, PLANT_SPOTS, LAMP_SPOTS } from './layout';
+import { SEAT_LAYOUT, TABLES, PLANT_SPOTS } from './layout';
 
 /**
  * 走路用的尋路：把房間切成 0.2 公尺的格子，桌椅等障礙物依角色半徑「膨脹」後標成不可走，
@@ -33,8 +33,8 @@ export function obstaclesFor(theme) {
   const o = [
     rect(-8.8, -4.0, -4.9, -3.84),   // 咖啡師吧台
     rect(-3.15, -1.25, -4.9, -4.25), // 矮櫃
-    rect(-8.7, -7.65, 1.25, 3.55),   // 沙發
-    circ(-7.9, 4.15, 0.2),           // 沙發旁立燈
+    rect(-8.7, -7.65, 0.2, 2.6),     // 沙發（CafeDecor SofaCorner：中心 z=1.4）
+    circ(-7.9, 3.15, 0.2),           // 沙發旁立燈
     rect(-8.85, -8.35, 6.7, 8.5),    // 書櫃
   ];
   if (f.piano) o.push(rect(7.2, 8.8, -4.9, -4.2), circ(8.0, -3.55, 0.25));
@@ -44,7 +44,6 @@ export function obstaclesFor(theme) {
     else o.push(circ(s.x, s.z, SEAT_R[s.style] ?? 0.3));
   });
   PLANT_SPOTS.slice(0, f.plants).forEach(([x, , z, sc]) => o.push(circ(x, z, 0.36 * sc)));
-  LAMP_SPOTS.slice(0, f.lamps ?? 0).forEach(([x, , z]) => o.push(circ(x, z, 0.2)));
   return o;
 }
 
