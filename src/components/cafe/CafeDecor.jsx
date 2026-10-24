@@ -3,6 +3,7 @@ import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import { useCafeTextures } from './textures';
 import Tables from './Tables';
+import { PLANT_SPOTS } from './layout';
 
 const BLACK_METAL = { color: '#1b1b1d', roughness: 0.45, metalness: 0.7 };
 const BRASS = { color: '#a8844f', roughness: 0.35, metalness: 0.85 };
@@ -291,35 +292,6 @@ function WallClock({ position }) {
   );
 }
 
-/** 垂吊植物 */
-function HangingPlant({ position, seed = 1 }) {
-  const strands = useMemo(() => {
-    let s = seed * 7919;
-    const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-    return Array.from({ length: 9 }, () => ({
-      x: (rnd() - 0.5) * 0.3, z: (rnd() - 0.5) * 0.3, len: 0.3 + rnd() * 0.5,
-    }));
-  }, [seed]);
-  return (
-    <group position={position}>
-      <mesh position={[0, 0.9, 0]}>
-        <cylinderGeometry args={[0.006, 0.006, 1.8, 6]} />
-        <meshStandardMaterial {...BLACK_METAL} />
-      </mesh>
-      <mesh castShadow>
-        <sphereGeometry args={[0.17, 16, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
-        <meshStandardMaterial color="#2a2522" roughness={0.6} side={THREE.DoubleSide} />
-      </mesh>
-      {strands.map((st, i) => (
-        <mesh key={i} position={[st.x, -st.len / 2, st.z]} scale={[0.5, 1, 0.3]}>
-          <sphereGeometry args={[st.len / 2, 8, 8]} />
-          <meshStandardMaterial color={i % 2 ? '#2f4a33' : '#3b5a3c'} roughness={0.75} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
 /** 左牆邊的書櫃 */
 function Bookcase({ position }) {
   const colors = ['#7b4a34', '#2f3a35', '#b08d57', '#2f3b4f', '#8a6a4b', '#4a5a47'];
@@ -446,12 +418,9 @@ function Rug({ position, size, colors }) {
   );
 }
 
-const PLANT_SPOTS = [
-  [-8.3, 0, -4.3, 1.5], [8.3, 0, 6.0, 1.3], [8.3, 0, -1.2, 1.3], [-1.2, 0, 8.3, 1.2],
-  [4.0, 0, 8.4, 1.3], [-8.3, 0, 5.0, 1.2], [-5.0, 0, 8.3, 1.3],
-];
-const HANGING_SPOTS = [
-  [-1.2, 3.7, 3.0], [3.2, 3.7, 6.8], [-5.5, 3.7, 0.5], [6.5, 3.7, 5.5], [-3.5, 3.7, 7.2],
+/** 原本掛綠色植栽的位置，改掛和旁邊一樣的愛迪生吊燈（只當裝飾，不打光，效能不受影響） */
+const EXTRA_LAMP_SPOTS = [
+  [-1.2, 3.2, 3.0], [3.2, 3.2, 6.8], [-5.5, 3.2, 0.5], [6.5, 3.2, 5.5], [-3.5, 3.2, 7.2],
 ];
 
 export default function CafeDecor({ theme }) {
@@ -486,7 +455,7 @@ export default function CafeDecor({ theme }) {
       <Tables textures={tex} />
 
       {PLANT_SPOTS.slice(0, f.plants).map(([x, y, z, sc], i) => <Plant key={i} position={[x, y, z]} scale={sc} seed={i + 1} />)}
-      {HANGING_SPOTS.slice(0, f.hanging).map((p, i) => <HangingPlant key={i} position={p} seed={i + 3} />)}
+      {EXTRA_LAMP_SPOTS.slice(0, f.hanging).map((p) => <PendantLamp key={p.join()} position={p} theme={theme} />)}
 
       {/* 吊燈：每個桌區各一盞；只有 6 盞會真的打光 */}
       <PendantLamp position={[1.5, 3.0, -3.8]} theme={theme} />
