@@ -7,54 +7,54 @@ import Tables from './Tables';
 const BLACK_METAL = { color: '#1b1b1d', roughness: 0.45, metalness: 0.7 };
 const BRASS = { color: '#a8844f', roughness: 0.35, metalness: 0.85 };
 const LEATHER = { color: '#4b2b18', roughness: 0.45 };
+const WOOD = { color: '#2a1a11', roughness: 0.6 };
 
 const ROOM = { x0: -9, x1: 9, z0: -5, z1: 9, h: 5.2 };
 
-/* ---------- 兩面牆：後牆（紅磚）+ 左牆（木條板） ---------- */
-function Walls({ tex }) {
+/* ---------- 兩面牆：後牆（磚牆／粉刷）+ 左牆（木條板） ---------- */
+function Walls({ tex, theme }) {
   const depth = ROOM.z1 - ROOM.z0;
   const width = ROOM.x1 - ROOM.x0;
+  const trim = { color: theme.trim, roughness: 0.6 };
   return (
     <group>
-      {/* 後牆 */}
       <mesh position={[0, ROOM.h / 2, ROOM.z0]} receiveShadow>
         <boxGeometry args={[width, ROOM.h, 0.2]} />
-        <meshStandardMaterial map={tex.brick} roughness={0.95} />
+        <meshStandardMaterial map={tex.back} roughness={0.95} />
       </mesh>
-      {/* 左牆 */}
       <mesh position={[ROOM.x0, ROOM.h / 2, ROOM.z0 + depth / 2]} receiveShadow>
         <boxGeometry args={[0.2, ROOM.h, depth]} />
         <meshStandardMaterial map={tex.slats} roughness={0.8} />
       </mesh>
-      {/* 踢腳板與牆角柱 */}
       <mesh position={[0, 0.09, ROOM.z0 + 0.12]}>
         <boxGeometry args={[width, 0.18, 0.06]} />
-        <meshStandardMaterial color="#1c120c" roughness={0.6} />
+        <meshStandardMaterial {...trim} />
       </mesh>
       <mesh position={[ROOM.x0 + 0.12, 0.09, ROOM.z0 + depth / 2]}>
         <boxGeometry args={[0.06, 0.18, depth]} />
-        <meshStandardMaterial color="#1c120c" roughness={0.6} />
+        <meshStandardMaterial {...trim} />
       </mesh>
       <mesh position={[ROOM.x0 + 0.05, ROOM.h / 2, ROOM.z0 + 0.05]}>
         <boxGeometry args={[0.22, ROOM.h, 0.22]} />
-        <meshStandardMaterial color="#1c120c" roughness={0.6} />
+        <meshStandardMaterial {...trim} />
       </mesh>
     </group>
   );
 }
 
-/** 黑鐵框格子窗，外面是黃昏夜景 */
-function Window({ position, rotationY = 0, w = 2.4, h = 1.8, dusk }) {
-  const bars = [];
-  for (let i = 1; i < 3; i += 1) bars.push([ -w / 2 + (w / 3) * i, 0, 0.04, h]);
-  for (let i = 1; i < 3; i += 1) bars.push([0, -h / 2 + (h / 3) * i, w, 0.04]);
+/** 黑鐵框格子窗，外面的景色依主題而定 */
+function Window({ position, rotationY = 0, w = 2.4, h = 1.8, sky }) {
+  const frame = [
+    [0, h / 2, w + 0.1, 0.08], [0, -h / 2, w + 0.1, 0.08], [-w / 2, 0, 0.08, h], [w / 2, 0, 0.08, h],
+    [-w / 6, 0, 0.04, h], [w / 6, 0, 0.04, h], [0, -h / 6, w, 0.04], [0, h / 6, w, 0.04],
+  ];
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
       <mesh>
         <planeGeometry args={[w, h]} />
-        <meshBasicMaterial map={dusk} toneMapped={false} />
+        <meshBasicMaterial map={sky} toneMapped={false} />
       </mesh>
-      {[[0, h / 2, w + 0.1, 0.08], [0, -h / 2, w + 0.1, 0.08], [-w / 2, 0, 0.08, h], [w / 2, 0, 0.08, h], ...bars].map(([x, y, bw, bh], i) => (
+      {frame.map(([x, y, bw, bh], i) => (
         <mesh key={i} position={[x, y, 0.03]}>
           <boxGeometry args={[bw, bh, 0.07]} />
           <meshStandardMaterial {...BLACK_METAL} />
@@ -62,14 +62,15 @@ function Window({ position, rotationY = 0, w = 2.4, h = 1.8, dusk }) {
       ))}
       <mesh position={[0, -h / 2 - 0.05, 0.1]}>
         <boxGeometry args={[w + 0.25, 0.06, 0.2]} />
-        <meshStandardMaterial color="#2a1a10" roughness={0.6} />
+        <meshStandardMaterial {...WOOD} />
       </mesh>
     </group>
   );
 }
 
-/** 愛迪生吊燈：黑鐵燈罩 + 燈絲燈泡 + 暖色光 */
-function PendantLamp({ position, intensity = 18, long = false }) {
+/** 愛迪生吊燈：黑鐵燈罩 + 燈絲燈泡；light=true 才會真的打光（控制效能） */
+function PendantLamp({ position, theme, light = false, intensity = 18, big = false }) {
+  const [color, boost] = theme.lamp;
   return (
     <group position={position}>
       <mesh position={[0, 1.2, 0]}>
@@ -77,14 +78,31 @@ function PendantLamp({ position, intensity = 18, long = false }) {
         <meshStandardMaterial {...BLACK_METAL} />
       </mesh>
       <mesh position={[0, 0.02, 0]}>
-        <coneGeometry args={[long ? 0.34 : 0.22, 0.2, 28, 1, true]} />
+        <coneGeometry args={[big ? 0.34 : 0.22, 0.2, 28, 1, true]} />
         <meshStandardMaterial color="#141414" roughness={0.5} metalness={0.6} side={THREE.DoubleSide} />
       </mesh>
       <mesh position={[0, -0.06, 0]}>
         <sphereGeometry args={[0.055, 14, 14]} />
-        <meshBasicMaterial color="#ffd9a0" toneMapped={false} />
+        <meshBasicMaterial color={color} toneMapped={false} />
       </mesh>
-      <pointLight position={[0, -0.2, 0]} color="#ffb06a" intensity={intensity} distance={9} decay={2} />
+      {light && <pointLight position={[0, -0.2, 0]} color={color} intensity={intensity * boost} distance={9} decay={2} />}
+    </group>
+  );
+}
+
+function FairyLights({ theme }) {
+  const bulbs = useMemo(() => Array.from({ length: 26 }, (_, i) => {
+    const t = i / 25;
+    return [-8.4 + t * 16.8, 4.95 - Math.abs(Math.sin(t * Math.PI * 4)) * 0.28, -4.82];
+  }), []);
+  return (
+    <group>
+      {bulbs.map((p, i) => (
+        <mesh key={i} position={p}>
+          <sphereGeometry args={[0.05, 8, 8]} />
+          <meshBasicMaterial color={theme.lamp[0]} toneMapped={false} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -94,20 +112,14 @@ function BaristaCounter({ menu }) {
   return (
     <group position={[-6.4, 0, -4.35]}>
       <RoundedBox args={[4.6, 1.1, 0.8]} radius={0.03} position={[0, 0.55, 0]} castShadow receiveShadow>
-        <meshStandardMaterial color="#2a1a11" roughness={0.6} />
+        <meshStandardMaterial {...WOOD} />
       </RoundedBox>
       <RoundedBox args={[4.8, 0.06, 0.95]} radius={0.015} position={[0, 1.13, 0.03]} castShadow>
         <meshStandardMaterial color="#6b6258" roughness={0.25} metalness={0.2} />
       </RoundedBox>
-      {/* 義式咖啡機 */}
       <RoundedBox args={[0.9, 0.5, 0.5]} radius={0.04} position={[-1.2, 1.41, -0.05]} castShadow>
         <meshStandardMaterial color="#8d8d90" roughness={0.25} metalness={0.9} />
       </RoundedBox>
-      <mesh position={[-1.2, 1.1, 0.25]}>
-        <boxGeometry args={[0.85, 0.02, 0.2]} />
-        <meshStandardMaterial {...BLACK_METAL} />
-      </mesh>
-      {/* 磨豆機、玻璃罐 */}
       <mesh position={[-0.3, 1.35, 0]} castShadow>
         <cylinderGeometry args={[0.08, 0.1, 0.4, 16]} />
         <meshStandardMaterial {...BLACK_METAL} />
@@ -118,15 +130,13 @@ function BaristaCounter({ menu }) {
           <meshStandardMaterial color="#c9a36b" transparent opacity={0.7} roughness={0.15} />
         </mesh>
       ))}
-      {/* 菜單黑板 */}
       <mesh position={[0, 2.9, -0.43]}>
         <planeGeometry args={[2.6, 1.3]} />
         <meshBasicMaterial map={menu} toneMapped={false} />
       </mesh>
-      {/* 杯架 */}
       <mesh position={[0, 2.05, -0.38]}>
         <boxGeometry args={[3.4, 0.05, 0.28]} />
-        <meshStandardMaterial color="#2a1a11" roughness={0.6} />
+        <meshStandardMaterial {...WOOD} />
       </mesh>
       {Array.from({ length: 9 }).map((_, i) => (
         <mesh key={i} position={[-1.4 + i * 0.35, 2.13, -0.38]} castShadow>
@@ -138,8 +148,202 @@ function BaristaCounter({ menu }) {
   );
 }
 
+/** 立式鋼琴（靠後牆右側） */
+function Piano({ position }) {
+  return (
+    <group position={position}>
+      <RoundedBox args={[1.5, 1.15, 0.6]} radius={0.03} position={[0, 0.575, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color="#16120f" roughness={0.25} metalness={0.15} />
+      </RoundedBox>
+      <RoundedBox args={[1.56, 0.05, 0.66]} radius={0.02} position={[0, 1.18, 0]} castShadow>
+        <meshStandardMaterial color="#16120f" roughness={0.25} metalness={0.15} />
+      </RoundedBox>
+      <mesh position={[0, 0.78, 0.36]} castShadow>
+        <boxGeometry args={[1.32, 0.04, 0.2]} />
+        <meshStandardMaterial color="#ece6da" roughness={0.4} />
+      </mesh>
+      {Array.from({ length: 14 }).map((_, i) => ((i % 7) === 2 || (i % 7) === 6 ? null : (
+        <mesh key={i} position={[-0.6 + i * 0.092, 0.805, 0.32]}>
+          <boxGeometry args={[0.04, 0.03, 0.12]} />
+          <meshStandardMaterial color="#0d0d0e" roughness={0.4} />
+        </mesh>
+      )))}
+      <mesh position={[0, 1.0, 0.18]}>
+        <boxGeometry args={[0.9, 0.24, 0.02]} />
+        <meshStandardMaterial color="#d8cfb8" roughness={0.9} />
+      </mesh>
+      <group position={[0, 0, 1.0]}>
+        <mesh position={[0, 0.45, 0]} castShadow>
+          <cylinderGeometry args={[0.2, 0.2, 0.07, 20]} />
+          <meshStandardMaterial {...LEATHER} />
+        </mesh>
+        <mesh position={[0, 0.22, 0]}>
+          <cylinderGeometry args={[0.018, 0.018, 0.44, 8]} />
+          <meshStandardMaterial {...BRASS} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+/** 矮櫃：爵士主題有黑膠唱機與喇叭，其他主題放花瓶與書 */
+function Sideboard({ position, records }) {
+  return (
+    <group position={position}>
+      <RoundedBox args={[1.8, 0.8, 0.45]} radius={0.02} position={[0, 0.4, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color="#3a2415" roughness={0.55} />
+      </RoundedBox>
+      {records ? (
+        <group position={[0, 0.8, 0]}>
+          <mesh position={[0, 0.04, 0]} castShadow>
+            <boxGeometry args={[0.55, 0.07, 0.4]} />
+            <meshStandardMaterial {...BLACK_METAL} />
+          </mesh>
+          <mesh position={[-0.05, 0.085, 0]}>
+            <cylinderGeometry args={[0.15, 0.15, 0.012, 32]} />
+            <meshStandardMaterial color="#0c0c0d" roughness={0.3} />
+          </mesh>
+          <mesh position={[-0.05, 0.093, 0]}>
+            <cylinderGeometry args={[0.04, 0.04, 0.004, 16]} />
+            <meshStandardMaterial color="#a8442f" />
+          </mesh>
+          {[-0.68, 0.68].map((x) => (
+            <RoundedBox key={x} args={[0.26, 0.42, 0.26]} radius={0.02} position={[x, 0.21, 0]} castShadow>
+              <meshStandardMaterial color="#1c1410" roughness={0.6} />
+            </RoundedBox>
+          ))}
+          {[0.4, 0.45, 0.5, 0.55].map((x, i) => (
+            <mesh key={x} position={[x, 0.16, 0.05 - i * 0.02]} rotation={[0, 0, -0.18 + i * 0.03]}>
+              <boxGeometry args={[0.012, 0.3, 0.3]} />
+              <meshStandardMaterial color={['#222', '#6b3b2a', '#2e3b4a', '#444'][i]} />
+            </mesh>
+          ))}
+        </group>
+      ) : (
+        <group position={[0, 0.8, 0]}>
+          <mesh position={[-0.5, 0.15, 0]} castShadow>
+            <cylinderGeometry args={[0.07, 0.09, 0.3, 14]} />
+            <meshStandardMaterial color="#2c2622" roughness={0.5} />
+          </mesh>
+          {[[-0.5, 0.4, 0], [-0.44, 0.34, 0.03], [-0.56, 0.35, -0.03]].map((p, i) => (
+            <mesh key={i} position={p} scale={[0.5, 1.5, 0.5]}>
+              <sphereGeometry args={[0.07, 10, 10]} />
+              <meshStandardMaterial color="#3b5a3a" roughness={0.8} />
+            </mesh>
+          ))}
+          {[0.35, 0.55].map((x, i) => (
+            <mesh key={x} position={[x, 0.03 + i * 0.05, 0]} castShadow>
+              <boxGeometry args={[0.3, 0.05, 0.22]} />
+              <meshStandardMaterial color={['#5b3a2a', '#2b3a34'][i]} />
+            </mesh>
+          ))}
+        </group>
+      )}
+    </group>
+  );
+}
+
+/** 後牆上方的長條層板：書與小植栽 */
+function WallShelf({ position, length = 5.5 }) {
+  const colors = ['#7b4a34', '#2f3a35', '#b08d57', '#2f3b4f', '#8a6a4b', '#4a5a47', '#7d4b3a'];
+  const n = Math.floor(length / 0.42);
+  return (
+    <group position={position}>
+      <mesh>
+        <boxGeometry args={[length, 0.05, 0.3]} />
+        <meshStandardMaterial {...WOOD} />
+      </mesh>
+      {Array.from({ length: n }).map((_, i) => (i % 5 === 4 ? (
+        <mesh key={i} position={[-length / 2 + 0.3 + i * 0.4, 0.1, 0]} castShadow>
+          <cylinderGeometry args={[0.06, 0.05, 0.14, 12]} />
+          <meshStandardMaterial color="#3a3430" roughness={0.5} />
+        </mesh>
+      ) : (
+        <mesh key={i} position={[-length / 2 + 0.3 + i * 0.4, 0.2, 0]} castShadow>
+          <boxGeometry args={[0.18, 0.34 - (i % 3) * 0.05, 0.2]} />
+          <meshStandardMaterial color={colors[i % colors.length]} roughness={0.8} />
+        </mesh>
+      )))}
+    </group>
+  );
+}
+
+function WallClock({ position }) {
+  return (
+    <group position={position}>
+      <mesh>
+        <cylinderGeometry args={[0.32, 0.32, 0.05, 40]} />
+        <meshStandardMaterial color="#17120f" roughness={0.5} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.32, 0.018, 8, 40]} />
+        <meshStandardMaterial {...BRASS} />
+      </mesh>
+      <mesh position={[0, 0.07, 0.04]} rotation={[0, 0, -0.5]}>
+        <boxGeometry args={[0.012, 0.15, 0.006]} />
+        <meshStandardMaterial {...BRASS} />
+      </mesh>
+      <mesh position={[0.08, 0.02, 0.04]} rotation={[0, 0, -1.7]}>
+        <boxGeometry args={[0.012, 0.2, 0.006]} />
+        <meshStandardMaterial {...BRASS} />
+      </mesh>
+    </group>
+  );
+}
+
+/** 垂吊植物 */
+function HangingPlant({ position, seed = 1 }) {
+  const strands = useMemo(() => {
+    let s = seed * 7919;
+    const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+    return Array.from({ length: 9 }, () => ({
+      x: (rnd() - 0.5) * 0.3, z: (rnd() - 0.5) * 0.3, len: 0.3 + rnd() * 0.5,
+    }));
+  }, [seed]);
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.9, 0]}>
+        <cylinderGeometry args={[0.006, 0.006, 1.8, 6]} />
+        <meshStandardMaterial {...BLACK_METAL} />
+      </mesh>
+      <mesh castShadow>
+        <sphereGeometry args={[0.17, 16, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
+        <meshStandardMaterial color="#2a2522" roughness={0.6} side={THREE.DoubleSide} />
+      </mesh>
+      {strands.map((st, i) => (
+        <mesh key={i} position={[st.x, -st.len / 2, st.z]} scale={[0.5, 1, 0.3]}>
+          <sphereGeometry args={[st.len / 2, 8, 8]} />
+          <meshStandardMaterial color={i % 2 ? '#2f4a33' : '#3b5a3c'} roughness={0.75} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** 左牆邊的書櫃 */
+function Bookcase({ position }) {
+  const colors = ['#7b4a34', '#2f3a35', '#b08d57', '#2f3b4f', '#8a6a4b', '#4a5a47'];
+  return (
+    <group position={position}>
+      <RoundedBox args={[0.4, 2.6, 1.8]} radius={0.02} position={[0, 1.3, 0]} castShadow>
+        <meshStandardMaterial color="#3a2415" roughness={0.6} />
+      </RoundedBox>
+      {[0.45, 0.95, 1.45, 1.95].map((y, r) => (
+        <group key={y} position={[0.1, y, 0]}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <mesh key={i} position={[0, 0.2, -0.75 + i * 0.2]} castShadow>
+              <boxGeometry args={[0.2, 0.32 - ((i + r) % 3) * 0.04, 0.14]} />
+              <meshStandardMaterial color={colors[(i + r) % colors.length]} roughness={0.8} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+    </group>
+  );
+}
+
 /** 左牆沙發 + 立燈 */
-function SofaCorner() {
+function SofaCorner({ theme }) {
   return (
     <group position={[-8.15, 0, 1.4]}>
       <RoundedBox args={[0.95, 0.38, 2.3]} radius={0.06} position={[0, 0.3, 0]} castShadow receiveShadow>
@@ -158,7 +362,6 @@ function SofaCorner() {
           <meshStandardMaterial color="#5a3420" roughness={0.5} />
         </RoundedBox>
       ))}
-      {/* 立燈 */}
       <group position={[0.25, 0, 1.75]}>
         <mesh position={[0, 0.8, 0]}>
           <cylinderGeometry args={[0.012, 0.012, 1.6, 8]} />
@@ -170,15 +373,14 @@ function SofaCorner() {
         </mesh>
         <mesh position={[0, 1.68, 0]}>
           <cylinderGeometry args={[0.16, 0.24, 0.26, 24, 1, true]} />
-          <meshStandardMaterial color="#e8c48f" emissive="#b97a3a" emissiveIntensity={0.7} side={THREE.DoubleSide} />
+          <meshStandardMaterial color="#e8c48f" emissive={theme.lamp[0]} emissiveIntensity={0.7} side={THREE.DoubleSide} />
         </mesh>
-        <pointLight position={[0, 1.6, 0]} color="#ffb06a" intensity={9} distance={6} decay={2} />
+        <pointLight position={[0, 1.6, 0]} color={theme.lamp[0]} intensity={9 * theme.lamp[1]} distance={6} decay={2} />
       </group>
     </group>
   );
 }
 
-/** 左牆掛畫 + 壁燈 */
 function LeftWallDecor({ art }) {
   return (
     <group position={[ROOM.x0 + 0.12, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
@@ -194,23 +396,11 @@ function LeftWallDecor({ art }) {
           </mesh>
         </group>
       ))}
-      {[-0.4, 8.0].map((x) => (
-        <group key={x} position={[-x, 2.8, 0.06]}>
-          <mesh>
-            <cylinderGeometry args={[0.07, 0.1, 0.18, 14, 1, true]} />
-            <meshStandardMaterial {...BRASS} side={THREE.DoubleSide} />
-          </mesh>
-          <mesh position={[0, -0.02, 0]}>
-            <sphereGeometry args={[0.04, 10, 10]} />
-            <meshBasicMaterial color="#ffd9a0" toneMapped={false} />
-          </mesh>
-        </group>
-      ))}
     </group>
   );
 }
 
-/** 深綠大型植栽（葉片用拉長的橢球，不是卡通球） */
+/** 深綠大型植栽 */
 function Plant({ position, scale = 1, seed = 1 }) {
   const leaves = useMemo(() => {
     let s = seed * 9301;
@@ -243,54 +433,72 @@ function Plant({ position, scale = 1, seed = 1 }) {
   );
 }
 
-function Rug({ position, size }) {
+function Rug({ position, size, colors }) {
   return (
     <group position={position}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.011, 0]} receiveShadow>
-        <planeGeometry args={size} />
-        <meshStandardMaterial color="#4a1f1c" roughness={1} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.013, 0]}>
-        <planeGeometry args={[size[0] - 0.4, size[1] - 0.4]} />
-        <meshStandardMaterial color="#5b2a22" roughness={1} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]}>
-        <planeGeometry args={[size[0] - 0.8, size[1] - 0.8]} />
-        <meshStandardMaterial color="#3a2a22" roughness={1} />
-      </mesh>
+      {[[size, colors[0], 0.011], [[size[0] - 0.4, size[1] - 0.4], colors[1], 0.013], [[size[0] - 0.8, size[1] - 0.8], colors[2], 0.015]].map(([sz, c, y], i) => (
+        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[0, y, 0]} receiveShadow={i === 0}>
+          <planeGeometry args={sz} />
+          <meshStandardMaterial color={c} roughness={1} />
+        </mesh>
+      ))}
     </group>
   );
 }
 
-export default function CafeDecor() {
-  const tex = useCafeTextures();
+const PLANT_SPOTS = [
+  [-8.3, 0, -4.3, 1.5], [8.3, 0, 6.0, 1.3], [8.3, 0, -1.2, 1.3], [-1.2, 0, 8.3, 1.2],
+  [4.0, 0, 8.4, 1.3], [-8.3, 0, 5.0, 1.2], [-5.0, 0, 8.3, 1.3],
+];
+const HANGING_SPOTS = [
+  [-1.2, 3.7, 3.0], [3.2, 3.7, 6.8], [-5.5, 3.7, 0.5], [6.5, 3.7, 5.5], [-3.5, 3.7, 7.2],
+];
+
+export default function CafeDecor({ theme }) {
+  const tex = useCafeTextures(theme);
+  const f = theme.features;
+  const dark = theme.id !== 'morning';
   return (
     <group>
-      {/* 地板 x -9~9、z -5~9 */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 2]} receiveShadow>
         <planeGeometry args={[18, 14]} />
         <meshStandardMaterial map={tex.floor} roughness={0.55} metalness={0.05} />
       </mesh>
 
-      <Walls tex={tex} />
-      <Window position={[1.8, 2.7, -4.88]} dusk={tex.dusk} />
-      <Window position={[5.2, 2.7, -4.88]} dusk={tex.dusk} />
-      <Window position={[-8.88, 2.6, 3.0]} rotationY={Math.PI / 2} w={2.6} dusk={tex.dusk} />
+      <Walls tex={tex} theme={theme} />
+      <Window position={[-2.2, 2.7, -4.88]} sky={tex.dusk} />
+      <Window position={[1.8, 2.7, -4.88]} sky={tex.dusk} />
+      <Window position={[5.2, 2.7, -4.88]} sky={tex.dusk} />
+      <Window position={[-8.88, 2.6, 3.0]} rotationY={Math.PI / 2} w={2.6} sky={tex.dusk} />
+      <FairyLights theme={theme} />
+      <WallClock position={[-0.2, 3.0, -4.84]} />
+      <WallShelf position={[3.5, 4.35, -4.7]} length={5.5} />
+      <WallShelf position={[-6.4, 4.3, -4.7]} length={3.6} />
       <BaristaCounter menu={tex.menu} />
+      <Sideboard position={[-2.2, 0, -4.55]} records={f.records} />
+      {f.piano && <Piano position={[8.0, 0, -4.55]} />}
       <LeftWallDecor art={tex.art} />
-      <SofaCorner />
-      <Rug position={[-5.6, 0, 5.0]} size={[4.2, 3.2]} />
+      <Bookcase position={[-8.6, 0, 7.6]} />
+      <SofaCorner theme={theme} />
+
+      <Rug position={[-5.6, 0, 5.0]} size={[4.2, 3.2]} colors={dark ? ['#4a1f1c', '#5b2a22', '#3a2a22'] : ['#a8756a', '#c08a7c', '#d8c3a8']} />
+      <Rug position={[1.0, 0, 1.0]} size={[5.4, 3.6]} colors={dark ? ['#2b2622', '#3a322c', '#241f1c'] : ['#8d7c68', '#a89580', '#cdbba2']} />
       <Tables textures={tex} />
 
-      <Plant position={[-8.2, 0, -4.2]} scale={1.5} seed={1} />
-      <Plant position={[8.2, 0, -4.2]} scale={1.4} seed={2} />
-      <Plant position={[8.1, 0, 7.8]} scale={1.3} seed={3} />
+      {PLANT_SPOTS.slice(0, f.plants).map(([x, y, z, sc], i) => <Plant key={i} position={[x, y, z]} scale={sc} seed={i + 1} />)}
+      {HANGING_SPOTS.slice(0, f.hanging).map((p, i) => <HangingPlant key={i} position={p} seed={i + 3} />)}
 
-      {/* 吊燈：每個桌區各一盞 */}
-      <PendantLamp position={[3.5, 3.0, -3.6]} intensity={20} />
-      <PendantLamp position={[1.0, 3.2, 1.0]} intensity={26} long />
-      <PendantLamp position={[5.5, 3.2, 4.0]} intensity={16} />
-      <PendantLamp position={[0.8, 3.2, 5.2]} intensity={16} />
+      {/* 吊燈：每個桌區各一盞；只有 6 盞會真的打光 */}
+      <PendantLamp position={[1.5, 3.0, -3.8]} theme={theme} />
+      <PendantLamp position={[3.5, 3.0, -3.8]} theme={theme} light intensity={20} />
+      <PendantLamp position={[5.5, 3.0, -3.8]} theme={theme} />
+      <PendantLamp position={[1.0, 3.2, 1.0]} theme={theme} light intensity={26} big />
+      <PendantLamp position={[5.5, 3.2, 4.0]} theme={theme} light intensity={16} />
+      <PendantLamp position={[0.8, 3.2, 5.2]} theme={theme} light intensity={16} />
+      <PendantLamp position={[7.6, 3.2, 1.5]} theme={theme} light intensity={12} />
+      <PendantLamp position={[-3.0, 3.2, 1.0]} theme={theme} />
+      <PendantLamp position={[-3.0, 3.2, 4.0]} theme={theme} />
+      <PendantLamp position={[-7.0, 3.0, -2.0]} theme={theme} />
     </group>
   );
 }
