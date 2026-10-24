@@ -25,7 +25,7 @@ export function preloadAvatar(rawUrl) {
   if (url) useGLTF.preload(url);
 }
 
-/* ------------------------- 頭頂 2D UI ------------------------- */
+/* ------------------------- 頭頂 2D UI（粉彩小標籤） ------------------------- */
 function AvatarHud({ seat, isSelf, y }) {
   const remaining = useCountdown(seat.phase_ends_at);
   const studying = seat.status === 'studying';
@@ -34,19 +34,23 @@ function AvatarHud({ seat, isSelf, y }) {
   return (
     <Html position={[0, y, 0]} center distanceFactor={7} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
       <div className="pointer-events-none flex select-none flex-col items-center gap-1 whitespace-nowrap">
-        <div className="rounded-full bg-black/60 px-2.5 py-0.5 text-xs font-medium text-white">
-          {seat.occupant_name ?? '同學'}{isSelf ? '（你）' : ''}
-        </div>
         <div
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1 font-mono text-xl font-semibold text-white shadow-lg ${
-            studying ? 'bg-amber-600/90' : 'bg-emerald-700/90'
+          className={`rounded-full px-3 py-0.5 text-xs font-semibold shadow-sm ${
+            isSelf ? 'bg-pink-200 text-pink-900' : 'bg-white/95 text-stone-700'
           }`}
         >
-          {studying ? <BookOpen size={16} /> : <Coffee size={16} />}
-          {finished ? '時間到' : formatMMSS(remaining)}
+          {seat.occupant_name ?? '同學'}{isSelf ? ' ♡' : ''}
+        </div>
+        <div
+          className={`flex items-center gap-1.5 rounded-full px-3.5 py-1 font-mono text-lg font-bold shadow-md ring-2 ring-white/80 ${
+            studying ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'
+          }`}
+        >
+          {studying ? <BookOpen size={15} /> : <Coffee size={15} />}
+          {finished ? '時間到！' : formatMMSS(remaining)}
         </div>
         {studying && seat.task && (
-          <div className="max-w-[180px] truncate rounded-md bg-white/90 px-2 py-0.5 text-xs text-stone-800">
+          <div className="max-w-[180px] truncate rounded-full bg-sky-100 px-3 py-0.5 text-xs font-medium text-sky-900 shadow-sm">
             {seat.task}
           </div>
         )}
@@ -55,20 +59,71 @@ function AvatarHud({ seat, isSelf, y }) {
   );
 }
 
-/* ------------------------- 占位角色（沒有頭像 / 載入中 / 載入失敗） ------------------------- */
+/* ------------------------- 可愛占位角色（沒頭像 / 載入中 / 載入失敗） ------------------------- */
+const BLOB_COLORS = ['#f4a6a0', '#f7c873', '#9fd4b0', '#9cc5f0', '#c9b1e8', '#f2b5d4'];
+const hashColor = (id = '') => {
+  let h = 0;
+  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return BLOB_COLORS[h % BLOB_COLORS.length];
+};
+
 function PlaceholderAvatar({ seat, isSelf, dim = false }) {
-  const color = isSelf ? '#f0a35e' : '#8aa4c8';
+  const color = hashColor(seat.occupant_id ?? '');
+  const mat = { transparent: dim, opacity: dim ? 0.55 : 1 };
+  const bob = useRef();
+  useFrame(({ clock }) => {
+    if (!bob.current) return;
+    bob.current.position.y = Math.sin(clock.elapsedTime * 2.2) * 0.012;
+    // 專注時低頭
+    bob.current.rotation.x = seat.status === 'studying' ? 0.12 : 0;
+  });
+
   return (
     <group position={[0, 0, -SIT.backShift]}>
-      <mesh position={[0, 0.5, 0]} castShadow>
-        <capsuleGeometry args={[0.17, 0.4, 6, 12]} />
-        <meshStandardMaterial color={color} transparent={dim} opacity={dim ? 0.5 : 1} />
-      </mesh>
-      <mesh position={[0, 0.95, 0.02]} castShadow>
-        <sphereGeometry args={[0.15, 16, 16]} />
-        <meshStandardMaterial color="#f1d5b8" transparent={dim} opacity={dim ? 0.5 : 1} />
-      </mesh>
-      <AvatarHud seat={seat} isSelf={isSelf} y={1.3} />
+      <group ref={bob}>
+        {/* 身體：圓滾滾的饅頭 */}
+        <mesh position={[0, 0.2, 0]} scale={[1, 1.1, 0.9]} castShadow>
+          <sphereGeometry args={[0.21, 24, 18]} />
+          <meshStandardMaterial color={color} roughness={0.9} {...mat} />
+        </mesh>
+        {/* 大頭 */}
+        <mesh position={[0, 0.6, 0.02]} castShadow>
+          <sphereGeometry args={[0.26, 28, 22]} />
+          <meshStandardMaterial color="#fbe3cf" roughness={0.9} {...mat} />
+        </mesh>
+        {/* 小熊耳朵 */}
+        {[-1, 1].map((sx) => (
+          <mesh key={sx} position={[sx * 0.19, 0.83, 0]} castShadow>
+            <sphereGeometry args={[0.075, 14, 12]} />
+            <meshStandardMaterial color={color} roughness={0.9} {...mat} />
+          </mesh>
+        ))}
+        {/* 眼睛 + 腮紅 + 嘴 */}
+        {[-1, 1].map((sx) => (
+          <group key={sx}>
+            <mesh position={[sx * 0.095, 0.63, 0.245]}>
+              <sphereGeometry args={[0.032, 10, 10]} />
+              <meshBasicMaterial color="#3b2a24" />
+            </mesh>
+            <mesh position={[sx * 0.16, 0.56, 0.225]} scale={[1, 0.65, 0.3]}>
+              <sphereGeometry args={[0.04, 10, 10]} />
+              <meshBasicMaterial color="#ff9fb0" />
+            </mesh>
+          </group>
+        ))}
+        <mesh position={[0, 0.54, 0.25]} scale={[1.2, 0.6, 0.4]}>
+          <sphereGeometry args={[0.018, 8, 8]} />
+          <meshBasicMaterial color="#b5655a" />
+        </mesh>
+        {/* 小手伸向桌面 */}
+        {[-1, 1].map((sx) => (
+          <mesh key={sx} position={[sx * 0.2, 0.3, 0.24]} castShadow>
+            <sphereGeometry args={[0.065, 12, 12]} />
+            <meshStandardMaterial color="#fbe3cf" roughness={0.9} {...mat} />
+          </mesh>
+        ))}
+      </group>
+      <AvatarHud seat={seat} isSelf={isSelf} y={1.15} />
     </group>
   );
 }
