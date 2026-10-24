@@ -3,9 +3,9 @@
 -- 座標需與前端 src/components/cafe/layout.js 的 TABLES 對得上。
 -- pos_y = 椅面高度：高腳凳 0.72／一般椅 0.45／皮沙發 0.42。rot_y：0 面向 +Z，π 面向 -Z，±π/2 面向 ±X。
 with c as (
-  insert into public.cafes (slug, name, description)
-  values ('main-street', '街角自習咖啡廳', '深焙咖啡色調的夜間咖啡廳')
-  on conflict (slug) do update set name = excluded.name, description = excluded.description
+  insert into public.cafes (slug, name)
+  values ('main-street', '街角自習咖啡廳')
+  on conflict (slug) do update set name = excluded.name
   returning id
 )
 insert into public.cafe_seats (cafe_id, seat_index, pos_x, pos_y, pos_z, rot_y)
