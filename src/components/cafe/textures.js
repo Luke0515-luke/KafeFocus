@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
-// 全部用 canvas 在本地產生，不需要任何外部圖檔，載入零延遲。
+// 全部用 canvas 在本地產生，不需要任何外部圖檔。依主題換顏色。
 function rngFactory(seed) {
   let s = seed;
   return () => ((s = (s * 16807) % 2147483647) / 2147483647);
@@ -27,9 +27,8 @@ function make(w, h, draw, repeat = [1, 1]) {
   return t;
 }
 
-function drawFloor(g, W, H) {
+function drawFloor(g, W, H, pal) {
   const rnd = rngFactory(11);
-  const pal = ['#4a2f1e', '#3f281a', '#52341f', '#37231a', '#45301f'];
   const rows = 32;
   const ph = H / rows;
   for (let r = 0; r < rows; r += 1) {
@@ -38,7 +37,7 @@ function drawFloor(g, W, H) {
       const w = 150 + rnd() * 160;
       g.fillStyle = shade(pal[Math.floor(rnd() * pal.length)], (rnd() - 0.5) * 14);
       g.fillRect(x, r * ph, w, ph);
-      g.strokeStyle = 'rgba(20,10,5,0.25)';
+      g.strokeStyle = 'rgba(20,10,5,0.22)';
       g.lineWidth = 1;
       for (let k = 0; k < 2; k += 1) {
         const y = r * ph + rnd() * ph;
@@ -47,7 +46,7 @@ function drawFloor(g, W, H) {
         g.lineTo(x + w, y + (rnd() - 0.5) * 2);
         g.stroke();
       }
-      g.strokeStyle = 'rgba(10,5,2,0.8)';
+      g.strokeStyle = 'rgba(10,5,2,0.7)';
       g.lineWidth = 2;
       g.strokeRect(x, r * ph, w, ph);
       x += w;
@@ -55,10 +54,9 @@ function drawFloor(g, W, H) {
   }
 }
 
-function drawBrick(g, W, H) {
+function drawBrick(g, W, H, { colors, mortar }) {
   const rnd = rngFactory(5);
-  const pal = ['#6e3b2b', '#7a4331', '#5f3226', '#6a3a2e', '#523024'];
-  g.fillStyle = '#2b211d';
+  g.fillStyle = mortar;
   g.fillRect(0, 0, W, H);
   const rows = 16;
   const bh = H / rows;
@@ -66,22 +64,32 @@ function drawBrick(g, W, H) {
   for (let r = 0; r < rows; r += 1) {
     const off = r % 2 ? bw / 2 : 0;
     for (let x = -off; x < W; x += bw) {
-      g.fillStyle = shade(pal[Math.floor(rnd() * pal.length)], (rnd() - 0.5) * 22);
+      g.fillStyle = shade(colors[Math.floor(rnd() * colors.length)], (rnd() - 0.5) * 22);
       g.fillRect(x + 1.5, r * bh + 1.5, bw - 3, bh - 3);
     }
   }
 }
 
-function drawSlats(g, W, H) {
+function drawPlaster(g, W, H, { color }) {
+  const rnd = rngFactory(17);
+  g.fillStyle = color;
+  g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 1400; i += 1) {
+    g.fillStyle = `rgba(${rnd() > 0.5 ? '255,255,255' : '0,0,0'},${0.012 + rnd() * 0.03})`;
+    g.fillRect(rnd() * W, rnd() * H, 2 + rnd() * 6, 2 + rnd() * 6);
+  }
+}
+
+function drawSlats(g, W, H, { base, slat }) {
   const rnd = rngFactory(3);
-  g.fillStyle = '#150d09';
+  g.fillStyle = base;
   g.fillRect(0, 0, W, H);
   const n = 8;
   const sw = W / n;
   for (let i = 0; i < n; i += 1) {
-    g.fillStyle = shade('#4a2d1c', (rnd() - 0.5) * 16);
+    g.fillStyle = shade(slat, (rnd() - 0.5) * 16);
     g.fillRect(i * sw + 3, 0, sw - 6, H);
-    g.strokeStyle = 'rgba(20,10,5,0.35)';
+    g.strokeStyle = 'rgba(20,10,5,0.3)';
     g.lineWidth = 1;
     for (let k = 0; k < 3; k += 1) {
       const x = i * sw + 6 + rnd() * (sw - 12);
@@ -113,21 +121,51 @@ function drawMarble(g, W, H) {
   }
 }
 
-function drawDusk(g, W, H) {
-  const rnd = rngFactory(21);
-  const grad = g.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, '#0c1220');
-  grad.addColorStop(0.6, '#1f2840');
-  grad.addColorStop(1, '#3a2f3b');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, W, H);
-  for (let i = 0; i < 46; i += 1) {
-    const y = H * (0.45 + rnd() * 0.55);
-    g.fillStyle = `rgba(255,${190 + Math.floor(rnd() * 50)},${120 + Math.floor(rnd() * 80)},${0.25 + rnd() * 0.5})`;
-    g.beginPath();
-    g.arc(rnd() * W, y, 1.5 + rnd() * 3.5, 0, Math.PI * 2);
-    g.fill();
-  }
+// 窗外景色：黃昏 / 夜晚 / 白天 / 森林
+function drawSky(kind) {
+  return (g, W, H) => {
+    const rnd = rngFactory(21);
+    const grad = g.createLinearGradient(0, 0, 0, H);
+    const stops = {
+      dusk: ['#0c1220', '#1f2840', '#3a2f3b'],
+      night: ['#050814', '#111a33', '#2a2a44'],
+      day: ['#8fc3ee', '#c5e1f5', '#eef6fb'],
+      forest: ['#6fa070', '#3f6b45', '#233d2a'],
+    }[kind];
+    grad.addColorStop(0, stops[0]);
+    grad.addColorStop(0.6, stops[1]);
+    grad.addColorStop(1, stops[2]);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, W, H);
+    if (kind === 'dusk' || kind === 'night') {
+      for (let i = 0; i < 46; i += 1) {
+        g.fillStyle = `rgba(255,${190 + Math.floor(rnd() * 50)},${120 + Math.floor(rnd() * 80)},${0.25 + rnd() * 0.5})`;
+        g.beginPath();
+        g.arc(rnd() * W, H * (0.45 + rnd() * 0.55), 1.5 + rnd() * 3.5, 0, Math.PI * 2);
+        g.fill();
+      }
+      if (kind === 'night') {
+        for (let i = 0; i < 40; i += 1) {
+          g.fillStyle = `rgba(255,255,255,${0.3 + rnd() * 0.6})`;
+          g.fillRect(rnd() * W, rnd() * H * 0.45, 1.5, 1.5);
+        }
+      }
+    } else if (kind === 'day') {
+      for (let i = 0; i < 6; i += 1) {
+        g.fillStyle = 'rgba(255,255,255,0.55)';
+        g.beginPath();
+        g.ellipse(rnd() * W, 30 + rnd() * H * 0.4, 40 + rnd() * 40, 10 + rnd() * 10, 0, 0, Math.PI * 2);
+        g.fill();
+      }
+    } else {
+      for (let i = 0; i < 70; i += 1) {
+        g.fillStyle = `rgba(${40 + rnd() * 60},${100 + rnd() * 80},${50 + rnd() * 50},0.4)`;
+        g.beginPath();
+        g.arc(rnd() * W, rnd() * H, 8 + rnd() * 22, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  };
 }
 
 function drawMenu(g, W, H) {
@@ -164,16 +202,19 @@ function drawArt(variant) {
   };
 }
 
-export function useCafeTextures() {
+export function useCafeTextures(theme) {
   const tex = useMemo(() => ({
-    floor: make(512, 512, drawFloor, [4, 3]),
-    brick: make(512, 256, drawBrick, [10.2, 4.3]),
-    slats: make(256, 256, drawSlats, [17.5, 6.5]),
-    marble: make(256, 256, drawMarble, [1, 1]),
-    dusk: make(256, 256, drawDusk, [1, 1]),
-    menu: make(512, 256, drawMenu, [1, 1]),
-    art: [0, 1, 2].map((v) => make(256, 320, drawArt(v), [1, 1])),
-  }), []);
+    floor: make(512, 512, (g, W, H) => drawFloor(g, W, H, theme.floor), [4, 3]),
+    back: theme.backWall.type === 'brick'
+      ? make(512, 256, (g, W, H) => drawBrick(g, W, H, theme.backWall), [10.2, 4.3])
+      : make(256, 256, (g, W, H) => drawPlaster(g, W, H, theme.backWall), [4, 2]),
+    slats: make(256, 256, (g, W, H) => drawSlats(g, W, H, theme.sideWall), [17.5, 6.5]),
+    marble: make(256, 256, drawMarble),
+    dusk: make(256, 256, drawSky(theme.sky)),
+    menu: make(512, 256, drawMenu),
+    art: [0, 1, 2].map((v) => make(256, 320, drawArt(v))),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [theme.id]);
 
   useEffect(() => () => {
     Object.values(tex).flat().forEach((t) => t.dispose());
