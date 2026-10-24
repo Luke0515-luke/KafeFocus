@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import AuthGate from './components/AuthGate';
-import Cafe3DScene from './components/3d/Cafe3DScene';
-import SeatControlPanel from './components/hud/SeatControlPanel';
+import CafeScene from './components/cafe/CafeScene';
+import ControlPanel from './components/cafe/ControlPanel';
 import { useCafeRealtime } from './hooks/useCafeRealtime';
 import { supabase } from './lib/supabaseClient';
 
@@ -48,8 +48,8 @@ function CafeRoom({ session }) {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-stone-900">
-      <Cafe3DScene seats={seats} currentUserId={userId} onSeatSelect={handleSeatSelect} />
-      <SeatControlPanel
+      <CafeScene seats={seats} currentUserId={userId} onSeatSelect={handleSeatSelect} />
+      <ControlPanel
         cafeName={cafe?.name}
         profile={profile}
         mySeat={mySeat}
