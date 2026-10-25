@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import AuthGate from './components/AuthGate';
 import CafeLobby from './components/CafeLobby';
 import CalendarPanel from './components/CalendarPanel';
+import PlannerPanel from './components/PlannerPanel';
+import { LeaderboardPanel, UserCard } from './components/SocialPanels';
 import ChatPanel from './components/ChatPanel';
 import MusicPlayer from './components/MusicPlayer';
 import CafeScene from './components/cafe/CafeScene';
@@ -32,7 +34,7 @@ function useCafeRoute() {
   return [slug, go];
 }
 
-function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar }) {
+function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar, onOpenPlanner, onOpenBoard }) {
   const userId = session.user.id;
   const theme = getTheme(slug);
   const [cafe, setCafe] = useState(undefined); // undefined 讀取中 / null 找不到
@@ -128,6 +130,8 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar }) {
         onBack={onBack}
         onSignOut={handleSignOut}
         onOpenCalendar={onOpenCalendar}
+        onOpenPlanner={onOpenPlanner}
+        onOpenBoard={onOpenBoard}
       />
       <ChatPanel messages={players.messages} myId={userId} onSend={players.sendChat} />
       {(cafe === undefined || loading) && (
@@ -140,17 +144,28 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar }) {
 function Main({ session }) {
   const [slug, go] = useCafeRoute();
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [plannerOpen, setPlannerOpen] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
+  const [profileId, setProfileId] = useState(null);
+  useEffect(() => {
+    const h = (e) => setProfileId(e.detail);
+    window.addEventListener('kf-open-profile', h);
+    return () => window.removeEventListener('kf-open-profile', h);
+  }, []);
   const signOut = useCallback(async () => { await supabase.auth.signOut(); }, []);
   const openCalendar = useCallback(() => setCalendarOpen(true), []);
 
   return (
     <>
       {slug ? (
-        <CafeRoom key={slug} slug={slug} session={session} onBack={() => go(null)} onSignOut={signOut} onOpenCalendar={openCalendar} />
+        <CafeRoom key={slug} slug={slug} session={session} onBack={() => go(null)} onSignOut={signOut} onOpenCalendar={openCalendar} onOpenPlanner={() => setPlannerOpen(true)} onOpenBoard={() => setBoardOpen(true)} />
       ) : (
-        <CafeLobby session={session} onSelect={go} onSignOut={signOut} onOpenCalendar={openCalendar} />
+        <CafeLobby session={session} onSelect={go} onSignOut={signOut} onOpenCalendar={openCalendar} onOpenPlanner={() => setPlannerOpen(true)} onOpenBoard={() => setBoardOpen(true)} />
       )}
       {calendarOpen && <CalendarPanel userId={session.user.id} onClose={() => setCalendarOpen(false)} />}
+      {plannerOpen && <PlannerPanel userId={session.user.id} onClose={() => setPlannerOpen(false)} />}
+      {boardOpen && <LeaderboardPanel myId={session.user.id} onClose={() => setBoardOpen(false)} />}
+      {profileId && <UserCard userId={profileId} myId={session.user.id} onClose={() => setProfileId(null)} />}
     </>
   );
 }
