@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { buildNav } from '../components/cafe/nav';
+import { outfitKey, sanitizeOutfit } from '../lib/outfit';
 
 const SPEED = 1.7;            // 走路速度（公尺／秒）
 const SEND_MS = 200;          // 位置廣播間隔（走動時）
@@ -28,7 +29,7 @@ const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(
  *  - 自己的移動在本地模擬（A* 尋路），每 200ms 廣播一次位置，別人收到後在畫面上平滑地追過去；
  *  - 入座的人以座位資料為準（坐著打字/看書/喝咖啡），所以站著的角色只顯示「沒有入座」的人。
  */
-export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onSit }) {
+export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onSit, outfit }) {
   const nav = useMemo(() => buildNav(theme), [theme]);
 
   // ---- 自己 ----
@@ -46,19 +47,26 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
 
   // 最新值放 ref，rAF / 計時器裡讀取就不會拿到舊的
   const latest = useRef({});
-  latest.current = { name, avatarUrl, onSit, nav };
+  latest.current = { name, avatarUrl, onSit, nav, outfit: sanitizeOutfit(outfit) };
 
   // ---- 別人與聊天 ----
   const othersRef = useRef(new Map());   // id -> { ref:{current}, name, avatar, last }
   const [others, setOthers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [bubbles, setBubbles] = useState({});
+  const [theirOutfits, setTheirOutfits] = useState({});
   const channelRef = useRef(null);
   const readyRef = useRef(false);
   const lastChatAt = useRef(0);
 
   const syncOthers = useCallback(() => {
     setOthers([...othersRef.current.entries()].map(([id, o]) => ({ id, name: o.name, avatar: o.avatar, ref: o.ref })));
+  }, []);
+
+  /** 記下別人的外觀（座位上的人也要靠這個，座位資料表裡沒有外觀欄位） */
+  const rememberOutfit = useCallback((id, raw) => {
+    const clean = sanitizeOutfit(raw);
+    setTheirOutfits((prev) => (outfitKey(prev[id]) === outfitKey(clean) ? prev : { ...prev, [id]: clean }));
   }, []);
 
   // ---- 入座 / 離座：入座時停下腳步，離座時站在椅子旁邊 ----
@@ -137,6 +145,7 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
       const rot = num(p.r, 20) ? p.r : 0;
       const nm = cleanText(p.name, 24) || '同學';
       const av = typeof p.av === 'string' ? p.av.slice(0, 300) : null;
+      if (p.o) rememberOutfit(p.id, p.o);
       let o = map.get(p.id);
       if (!o) {
         o = { ref: { current: { x: p.x, z: p.z, rot, moving: !!p.m } }, name: nm, avatar: av, last: Date.now() };
@@ -148,6 +157,10 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
         o.last = Date.now();
         if (o.name !== nm || o.avatar !== av) { o.name = nm; o.avatar = av; syncOthers(); }
       }
+    });
+
+    ch.on('broadcast', { event: 'who' }, ({ payload: p }) => {
+      if (p && typeof p.id === 'string' && p.id !== userId) rememberOutfit(p.id, p.o);
     });
 
     ch.on('broadcast', { event: 'chat' }, ({ payload: p }) => {
@@ -177,7 +190,20 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
       othersRef.current.clear();
       setOthers([]);
     };
-  }, [cafeId, userId, syncOthers]);
+  }, [cafeId, userId, syncOthers, rememberOutfit]);
+
+  // ---- 外觀心跳：坐著的人不會廣播位置，但別人還是要知道他的外觀（每 4 秒 + 改外觀時立刻送） ----
+  const myOutfitKey = outfitKey(outfit);
+  useEffect(() => {
+    if (!cafeId || !userId) return undefined;
+    const send = () => {
+      if (!channelRef.current || !readyRef.current) return;
+      channelRef.current.send({ type: 'broadcast', event: 'who', payload: { id: userId, o: latest.current.outfit } });
+    };
+    const first = setTimeout(send, 1200);
+    const id = setInterval(send, 4000);
+    return () => { clearTimeout(first); clearInterval(id); };
+  }, [cafeId, userId, myOutfitKey]);
 
   // ---- 位置廣播（走動時 5 次／秒，站著不動時每 3 秒一次） ----
   useEffect(() => {
@@ -196,7 +222,7 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
         type: 'broadcast', event: 'pos',
         payload: {
           id: userId, name: latest.current.name ?? '同學', av: latest.current.avatarUrl ?? null,
-          x: +me.x.toFixed(2), z: +me.z.toFixed(2), r: +me.rot.toFixed(2), m: me.moving,
+          x: +me.x.toFixed(2), z: +me.z.toFixed(2), r: +me.rot.toFixed(2), m: me.moving, o: latest.current.outfit,
         },
       });
     }, SEND_MS);
@@ -261,5 +287,8 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
     return true;
   }, [userId]);
 
-  return { meRef, destRef, showMe: !mySeat, others, messages, bubbles, walkTo, sitAt, sendChat };
+  // 所有人的外觀（含自己），給座位上與站著的角色用
+  const outfits = useMemo(() => ({ ...theirOutfits, [userId]: sanitizeOutfit(outfit) }), [theirOutfits, userId, outfit]);
+
+  return { meRef, destRef, showMe: !mySeat, others, messages, bubbles, outfits, walkTo, sitAt, sendChat };
 }
