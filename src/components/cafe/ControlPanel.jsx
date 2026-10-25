@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, CalendarDays, ChevronDown, ChevronUp, Coffee, LogOut, Users, Wifi, WifiOff } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarDays, ChevronDown, ChevronUp, Coffee, ListChecks, LogOut, Trophy, Users, Wifi, WifiOff } from 'lucide-react';
 import { formatMMSS, useCountdown } from '../../hooks/useCountdown';
 import { sanitizeAvatarUrl } from '../../lib/avatarUrl';
 import OutfitEditor from './OutfitEditor';
@@ -19,7 +19,7 @@ const clampMin = (v, fallback) => Math.min(120, Math.max(1, Math.round(Number(v)
  */
 export default function ControlPanel({
   cafeName, profile, mySeat, connection, onlineCount, notice, userId, outfit, onOutfitChange,
-  onSetStatus, onLeave, onSaveAvatar, onBack, onSignOut, onOpenCalendar,
+  onSetStatus, onLeave, onSaveAvatar, onBack, onSignOut, onOpenCalendar, onOpenPlanner, onOpenBoard,
 }) {
   const [task, setTask] = useState('');
   const [focusMin, setFocusMin] = useState(() => lsGet(FOCUS_KEY, 25));
@@ -156,6 +156,14 @@ export default function ControlPanel({
       <OutfitEditor userId={userId} outfit={outfit} onChange={onOutfitChange} />
 
       <div className="flex gap-2 border-t border-stone-700 pt-3">
+        <button type="button" onClick={onOpenPlanner} className={`${btn} bg-amber-700 text-white hover:bg-amber-600`}>
+          <ListChecks size={16} /> 讀書計畫
+        </button>
+        <button type="button" onClick={onOpenBoard} className={`${btn} bg-stone-800 hover:bg-stone-700`}>
+          <Trophy size={16} /> 排行榜
+        </button>
+      </div>
+      <div className="flex gap-2">
         <button type="button" onClick={onOpenCalendar} className={`${btn} bg-stone-800 hover:bg-stone-700`}>
           <CalendarDays size={16} /> 行事曆
         </button>

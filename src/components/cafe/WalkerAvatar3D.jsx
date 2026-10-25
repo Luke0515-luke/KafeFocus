@@ -7,6 +7,7 @@ import { animateWalk, createWalkRig } from './walkPose';
 import SpeechBubble from './Bubble';
 import { AvatarErrorBoundary } from './AvatarErrorBoundary';
 import { sanitizeAvatarUrl } from '../../lib/avatarUrl';
+import { openProfile } from '../../lib/openProfile';
 import { applyOutfitToRig, outfitKey, resolveOutfit } from '../../lib/outfit';
 
 const dampAngle = (cur, target, lambda, dt) => {
@@ -16,13 +17,14 @@ const dampAngle = (cur, target, lambda, dt) => {
 };
 
 /** 走路角色頭頂的名字與聊天泡泡 */
-function NameTag({ name, isSelf, y, bubble }) {
+function NameTag({ name, isSelf, y, bubble, uid }) {
   return (
     <Html position={[0, y, 0]} center distanceFactor={7} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
       <div className="pointer-events-none flex select-none flex-col items-center gap-1 whitespace-nowrap">
         <SpeechBubble bubble={bubble} />
         <div
-          className={`rounded-md px-2.5 py-0.5 text-xs font-medium backdrop-blur-sm ${
+          onClick={() => openProfile(uid)} role="button" tabIndex={0}
+          className={`pointer-events-auto cursor-pointer rounded-md px-2.5 py-0.5 text-xs font-medium backdrop-blur-sm ${
             isSelf ? 'bg-amber-700/90 text-amber-50' : 'bg-stone-900/80 text-stone-100 ring-1 ring-stone-600/60'
           }`}
         >
@@ -106,7 +108,7 @@ function PlaceholderWalker({ motion, name, isSelf, bubble, dim = false, uid, out
           </mesh>
         </group>
       ))}
-      <NameTag name={name} isSelf={isSelf} y={1.95} bubble={bubble} />
+      <NameTag name={name} isSelf={isSelf} y={1.95} bubble={bubble} uid={uid} />
     </group>
   );
 }
@@ -133,7 +135,7 @@ function WalkerModel({ url, motion, name, isSelf, bubble, uid, outfit }) {
   return (
     <group ref={bob}>
       <primitive object={rig.root} />
-      <NameTag name={name} isSelf={isSelf} y={labelY} bubble={bubble} />
+      <NameTag name={name} isSelf={isSelf} y={labelY} bubble={bubble} uid={uid} />
     </group>
   );
 }

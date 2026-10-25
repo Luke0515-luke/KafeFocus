@@ -1,6 +1,7 @@
 import { Suspense, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html, useGLTF } from '@react-three/drei';
+import { openProfile } from '../../lib/openProfile';
 import * as THREE from 'three';
 // SkinnedMesh 的 .clone() 不會重新綁定骨架，多人共用同一個 glb 會互相拉扯；
 // SkeletonUtils.clone 等同 .clone()，但會正確複製骨架。幾何與材質仍與快取共用，記憶體不會倍增。
@@ -39,7 +40,8 @@ function AvatarHud({ seat, isSelf, y, bubble }) {
       <div className="pointer-events-none flex select-none flex-col items-center gap-1 whitespace-nowrap">
         <SpeechBubble bubble={bubble} />
         <div
-          className={`rounded-md px-2.5 py-0.5 text-xs font-medium backdrop-blur-sm ${
+          onClick={() => openProfile(seat.occupant_id)} role="button" tabIndex={0}
+          className={`pointer-events-auto cursor-pointer rounded-md px-2.5 py-0.5 text-xs font-medium backdrop-blur-sm ${
             isSelf ? 'bg-amber-700/90 text-amber-50' : 'bg-stone-900/80 text-stone-100 ring-1 ring-stone-600/60'
           }`}
         >
