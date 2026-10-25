@@ -20,3 +20,9 @@ VITE_SUPABASE_URL=https://xxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJ...
 ```
 5. `npm run dev`，開兩個瀏覽器（一個無痕）註冊不同帳號即可看到彼此入座。
+
+## 3. 讀書計畫 / 甘特圖 / 排行榜 / 獎勵（新功能）
+1. Supabase → SQL Editor 執行 `study_planner.sql`（需先執行過 `cafes_calendar_24_seats.sql`）。
+2. 大廳或咖啡廳左上角面板 →「讀書計畫」：新增項目（內容、預計時數、難度、最晚完成日、打算讀的星期與時段），系統自動排好每天的區塊並畫出甘特圖。
+3. 每個區塊讀完就勾選 → 獲得 XP、連續天數、徽章、升級；「排行榜」可看今日 / 累計 / 經驗值排名，點任何名字（排行榜、聊天室、3D 場景名牌）可看總讀書時間與今天讀書時間。
+4. 排程演算法在 `src/lib/scheduler.js`（分散練習、交錯練習、間隔複習、時間緩衝、晝夜節律、避開行事曆行程）。
