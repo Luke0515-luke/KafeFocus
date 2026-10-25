@@ -13,6 +13,7 @@ import { usePlayers } from './hooks/usePlayers';
 import { PLAYLIST } from './config/playlist';
 import { getMeta, getTheme } from './config/themes';
 import { supabase } from './lib/supabaseClient';
+import { loadOutfit, persistOutfit } from './lib/outfit';
 
 /* 簡單的 hash 路由：#/cafe/<slug> 是咖啡廳房間，其餘是大廳。瀏覽器上一頁可以回大廳。 */
 const parseHash = () => {
@@ -37,6 +38,8 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar }) {
   const [cafe, setCafe] = useState(undefined); // undefined 讀取中 / null 找不到
   const [profile, setProfile] = useState(null);
   const [notice, setNotice] = useState('');
+  const [outfit, setOutfit] = useState(() => loadOutfit(session.user));
+  const handleOutfit = useCallback((next) => { setOutfit(next); persistOutfit(supabase, next); }, []);
 
   useEffect(() => {
     let alive = true;
@@ -68,7 +71,7 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar }) {
   // 站著 / 走動 / 聊天
   const players = usePlayers({
     cafeId: cafe?.id, userId, name: profile?.display_name, avatarUrl: profile?.avatar_url,
-    theme, mySeat, onSit: handleSit,
+    theme, mySeat, onSit: handleSit, outfit,
   });
   const handleSeatSelect = useCallback((seat) => { setNotice(''); players.sitAt(seat); }, [players]);
   const handleFloorClick = useCallback((x, z) => {
@@ -116,6 +119,9 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar }) {
         connection={connection}
         onlineCount={onlineCount}
         notice={notice || error?.message}
+        userId={userId}
+        outfit={outfit}
+        onOutfitChange={handleOutfit}
         onSetStatus={(status, task, sec) => setStatus({ status, task, durationSec: sec })}
         onLeave={leaveSeat}
         onSaveAvatar={handleSaveAvatar}
