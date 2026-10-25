@@ -92,13 +92,13 @@ function Gantt({ items, sessions, today, selDay, onPick }) {
 /* ---------------- 新增項目表單 ---------------- */
 function ItemForm({ onAdd, busy }) {
   const tomorrow = addDays(dateKey(new Date()), 7);
-  const [f, setF] = useState({ title: '', note: '', hours: 5, deadline: tomorrow, start_date: '', difficulty: 2, weekdays: [0, 1, 2, 3, 4, 5, 6], windows: ['morning', 'afternoon', 'evening'], review: true });
+  const [f, setF] = useState({ title: '', note: '', minutes: 300, deadline: tomorrow, start_date: '', difficulty: 2, weekdays: [0, 1, 2, 3, 4, 5, 6], windows: ['morning', 'afternoon', 'evening'], review: true });
   const toggle = (key, v) => setF((p) => ({ ...p, [key]: p[key].includes(v) ? p[key].filter((x) => x !== v) : [...p[key], v] }));
   const submit = async (e) => {
     e.preventDefault();
     if (!f.title.trim() || !f.weekdays.length || !f.windows.length) return;
     await onAdd({
-      title: f.title.trim(), note: f.note.trim() || null, est_minutes: Math.max(5, Math.round(Number(f.hours) * 60)),
+      title: f.title.trim(), note: f.note.trim() || null, est_minutes: Math.min(12000, Math.max(5, Math.round(Number(f.minutes) || 0))),
       deadline: f.deadline, start_date: f.start_date || null, difficulty: Number(f.difficulty), weekdays: f.weekdays, windows: f.windows, review: f.review,
     });
     setF((p) => ({ ...p, title: '', note: '' }));
@@ -108,8 +108,8 @@ function ItemForm({ onAdd, busy }) {
       <div className="grid gap-2 sm:grid-cols-2">
         <input className={field} placeholder="項目（例：微積分第 1–5 章）" maxLength={60} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
         <input className={field} placeholder="內容 / 範圍（可不填）" maxLength={300} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
-        <label className="text-xs text-stone-400">預計總時數（小時）
-          <input className={`${field} mt-1`} type="number" min={0.1} max={200} step={0.5} value={f.hours} onChange={(e) => setF({ ...f, hours: e.target.value })} />
+        <label className="text-xs text-stone-400">預計總時間（分鐘，任意數字）≈ {fmtDuration(Number(f.minutes) || 0)}
+          <input className={`${field} mt-1`} type="number" inputMode="numeric" min={5} max={12000} step={1} value={f.minutes} onChange={(e) => setF({ ...f, minutes: e.target.value })} />
         </label>
         <label className="text-xs text-stone-400">難度
           <select className={`${field} mt-1`} value={f.difficulty} onChange={(e) => setF({ ...f, difficulty: e.target.value })}>
