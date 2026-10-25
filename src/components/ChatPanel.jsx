@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, X } from 'lucide-react';
+import { openProfile } from '../lib/openProfile';
 
 const isWide = () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
 
@@ -44,7 +45,7 @@ export default function ChatPanel({ messages, myId, onSend }) {
         {messages.length === 0 && <li className="text-xs text-stone-500">跟同一間咖啡廳的人打聲招呼吧（訊息不會被保存）。</li>}
         {messages.map((m) => (
           <li key={m.id} className="break-words">
-            <span className={m.uid === myId ? 'font-medium text-amber-400' : 'font-medium text-stone-300'}>{m.name}</span>
+            <button type="button" onClick={() => openProfile(m.uid)} className={`font-medium underline-offset-2 hover:underline ${m.uid === myId ? 'text-amber-400' : 'text-stone-300'}`}>{m.name}</button>
             <span className="text-stone-500">：</span>{m.text}
           </li>
         ))}

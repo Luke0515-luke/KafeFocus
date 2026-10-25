@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Coffee, Leaf, LogOut, Music, Store, Sun, Users } from 'lucide-react';
+import { CalendarDays, Coffee, Leaf, ListChecks, LogOut, Music, Store, Sun, Trophy, Users } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { CAFE_ORDER, getMeta, getTheme } from '../config/themes';
 
 const ICONS = { Coffee, Music, Sun, Leaf, Store };
 
 /** 首頁：列出所有咖啡廳，顯示即時人數，點選進入。 */
-export default function CafeLobby({ session, onSelect, onSignOut, onOpenCalendar }) {
+export default function CafeLobby({ session, onSelect, onSignOut, onOpenCalendar, onOpenPlanner, onOpenBoard }) {
   const userId = session.user.id;
   const [cafes, setCafes] = useState(null);
   const [counts, setCounts] = useState({});
@@ -61,6 +61,12 @@ export default function CafeLobby({ session, onSelect, onSignOut, onOpenCalendar
             <p className="mt-1 text-sm text-stone-400">{name ? `${name}，` : ''}選一間咖啡廳，找個位子一起專注。</p>
           </div>
           <div className="flex gap-2">
+            <button type="button" onClick={onOpenPlanner} className="flex items-center gap-1.5 rounded-lg bg-amber-700 px-3 py-2 text-sm text-white hover:bg-amber-600">
+              <ListChecks size={16} /> 讀書計畫
+            </button>
+            <button type="button" onClick={onOpenBoard} className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-sm hover:bg-stone-700">
+              <Trophy size={16} /> 排行榜
+            </button>
             <button type="button" onClick={onOpenCalendar} className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-sm hover:bg-stone-700">
               <CalendarDays size={16} /> 行事曆
             </button>
