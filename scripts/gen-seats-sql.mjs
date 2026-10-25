@@ -2,7 +2,7 @@
 // 座位座標來源是 src/components/cafe/layout.js，改了座位就重新產生一次。
 import { readFileSync } from 'node:fs';
 
-const SLUGS = ['main-street', 'jazz-night', 'morning-light', 'forest-reading'];
+const SLUGS = ['main-street', 'jazz-night', 'morning-light', 'bright-corner', 'forest-reading'];
 const src = readFileSync(new URL('../src/components/cafe/layout.js', import.meta.url), 'utf8');
 const { SEAT_LAYOUT } = await import(`data:text/javascript;base64,${Buffer.from(src).toString('base64')}`);
 
