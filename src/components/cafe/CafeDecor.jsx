@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { useCafeTextures } from './textures';
 import Tables from './Tables';
 import { PLANT_SPOTS } from './layout';
+import PianoPlayer from './PianoPlayer';
+import { usePalette } from './palette';
 
 const BLACK_METAL = { color: '#1b1b1d', roughness: 0.45, metalness: 0.7 };
 const BRASS = { color: '#a8844f', roughness: 0.35, metalness: 0.85 };
@@ -39,6 +41,27 @@ function Walls({ tex, theme }) {
         <boxGeometry args={[0.22, ROOM.h, 0.22]} />
         <meshStandardMaterial {...trim} />
       </mesh>
+      {theme.accent && (
+        <>
+          {/* 品牌色牆裙（後牆與左牆下半部）+ 白色壓條 */}
+          <mesh position={[0, 0.55, ROOM.z0 + 0.14]}>
+            <boxGeometry args={[width - 0.3, 1.0, 0.04]} />
+            <meshStandardMaterial color={theme.accent} roughness={0.55} />
+          </mesh>
+          <mesh position={[0, 1.07, ROOM.z0 + 0.15]}>
+            <boxGeometry args={[width - 0.3, 0.05, 0.07]} />
+            <meshStandardMaterial color="#f4f0e6" roughness={0.5} />
+          </mesh>
+          <mesh position={[ROOM.x0 + 0.14, 0.55, ROOM.z0 + depth / 2 + 0.1]}>
+            <boxGeometry args={[0.04, 1.0, depth - 0.3]} />
+            <meshStandardMaterial color={theme.accent} roughness={0.55} />
+          </mesh>
+          <mesh position={[ROOM.x0 + 0.15, 1.07, ROOM.z0 + depth / 2 + 0.1]}>
+            <boxGeometry args={[0.07, 0.05, depth - 0.3]} />
+            <meshStandardMaterial color="#f4f0e6" roughness={0.5} />
+          </mesh>
+        </>
+      )}
     </group>
   );
 }
@@ -71,6 +94,7 @@ function Window({ position, rotationY = 0, w = 2.4, h = 1.8, sky }) {
 
 /** 愛迪生吊燈：黑鐵燈罩 + 燈絲燈泡；light=true 才會真的打光（控制效能） */
 function PendantLamp({ position, theme, light = false, intensity = 18, big = false }) {
+  const P = usePalette();
   const [color, boost] = theme.lamp;
   return (
     <group position={position}>
@@ -80,7 +104,7 @@ function PendantLamp({ position, theme, light = false, intensity = 18, big = fal
       </mesh>
       <mesh position={[0, 0.02, 0]}>
         <coneGeometry args={[big ? 0.34 : 0.22, 0.2, 28, 1, true]} />
-        <meshStandardMaterial color="#141414" roughness={0.5} metalness={0.6} side={THREE.DoubleSide} />
+        <meshStandardMaterial color={P.shade} roughness={0.5} metalness={0.6} side={THREE.DoubleSide} />
       </mesh>
       <mesh position={[0, -0.06, 0]}>
         <sphereGeometry args={[0.055, 14, 14]} />
@@ -110,10 +134,11 @@ function FairyLights({ theme }) {
 
 /** 後牆左側：咖啡師吧台 + 菜單黑板 + 杯架 */
 function BaristaCounter({ menu }) {
+  const P = usePalette();
   return (
     <group position={[-6.4, 0, -4.35]}>
       <RoundedBox args={[4.6, 1.1, 0.8]} radius={0.03} position={[0, 0.55, 0]} castShadow receiveShadow>
-        <meshStandardMaterial {...WOOD} />
+        <meshStandardMaterial color={P.counter} roughness={0.6} />
       </RoundedBox>
       <RoundedBox args={[4.8, 0.06, 0.95]} radius={0.015} position={[0, 1.13, 0.03]} castShadow>
         <meshStandardMaterial color="#6b6258" roughness={0.25} metalness={0.2} />
@@ -316,17 +341,18 @@ function Bookcase({ position }) {
 
 /** 左牆沙發 + 立燈 */
 function SofaCorner({ theme }) {
+  const P = usePalette();
   return (
     <group position={[-8.15, 0, 1.4]}>
       <RoundedBox args={[0.95, 0.38, 2.3]} radius={0.06} position={[0, 0.3, 0]} castShadow receiveShadow>
-        <meshStandardMaterial {...LEATHER} />
+        <meshStandardMaterial color={P.sofa} roughness={0.45} />
       </RoundedBox>
       <RoundedBox args={[0.3, 0.7, 2.3]} radius={0.08} position={[-0.38, 0.65, 0]} castShadow>
-        <meshStandardMaterial {...LEATHER} />
+        <meshStandardMaterial color={P.sofa} roughness={0.45} />
       </RoundedBox>
       {[-1, 1].map((s) => (
         <RoundedBox key={s} args={[0.95, 0.3, 0.2]} radius={0.06} position={[0, 0.55, s * 1.1]} castShadow>
-          <meshStandardMaterial {...LEATHER} />
+          <meshStandardMaterial color={P.sofa} roughness={0.45} />
         </RoundedBox>
       ))}
       {[-0.5, 0.5].map((z) => (
@@ -426,7 +452,7 @@ const EXTRA_LAMP_SPOTS = [
 export default function CafeDecor({ theme }) {
   const tex = useCafeTextures(theme);
   const f = theme.features;
-  const dark = theme.id !== 'morning';
+  const dark = !theme.light;
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 2]} receiveShadow>
@@ -446,12 +472,13 @@ export default function CafeDecor({ theme }) {
       <BaristaCounter menu={tex.menu} />
       <Sideboard position={[-2.2, 0, -4.55]} records={f.records} />
       {f.piano && <Piano position={[8.0, 0, -4.55]} />}
+      {f.piano && <PianoPlayer position={[8.0, 0, -4.55]} />}
       <LeftWallDecor art={tex.art} />
       <Bookcase position={[-8.6, 0, 7.6]} />
       <SofaCorner theme={theme} />
 
-      <Rug position={[-5.6, 0, 5.0]} size={[4.2, 3.2]} colors={dark ? ['#4a1f1c', '#5b2a22', '#3a2a22'] : ['#a8756a', '#c08a7c', '#d8c3a8']} />
-      <Rug position={[1.0, 0, 1.0]} size={[5.4, 3.6]} colors={dark ? ['#2b2622', '#3a322c', '#241f1c'] : ['#8d7c68', '#a89580', '#cdbba2']} />
+      <Rug position={[-5.6, 0, 5.0]} size={[4.2, 3.2]} colors={theme.rugs?.[0] ?? (dark ? ['#4a1f1c', '#5b2a22', '#3a2a22'] : ['#a8756a', '#c08a7c', '#d8c3a8'])} />
+      <Rug position={[1.0, 0, 1.0]} size={[5.4, 3.6]} colors={theme.rugs?.[1] ?? (dark ? ['#2b2622', '#3a322c', '#241f1c'] : ['#8d7c68', '#a89580', '#cdbba2'])} />
       <Tables textures={tex} />
 
       {PLANT_SPOTS.slice(0, f.plants).map(([x, y, z, sc], i) => <Plant key={i} position={[x, y, z]} scale={sc} seed={i + 1} />)}

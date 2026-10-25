@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, BookOpen, CalendarDays, ChevronDown, ChevronUp, Coffee, LogOut, Users, Wifi, WifiOff } from 'lucide-react';
 import { formatMMSS, useCountdown } from '../../hooks/useCountdown';
 import { sanitizeAvatarUrl } from '../../lib/avatarUrl';
+import OutfitEditor from './OutfitEditor';
 
 const FOCUS_KEY = 'kf_focus_min';
 const BREAK_KEY = 'kf_break_min';
@@ -17,7 +18,7 @@ const clampMin = (v, fallback) => Math.min(120, Math.max(1, Math.round(Number(v)
  * 手機（窄螢幕）預設收成一條小列，只剩返回、人數與倒數，免得整個面板擋住咖啡廳；點右側箭頭才展開。
  */
 export default function ControlPanel({
-  cafeName, profile, mySeat, connection, onlineCount, notice,
+  cafeName, profile, mySeat, connection, onlineCount, notice, userId, outfit, onOutfitChange,
   onSetStatus, onLeave, onSaveAvatar, onBack, onSignOut, onOpenCalendar,
 }) {
   const [task, setTask] = useState('');
@@ -151,6 +152,8 @@ export default function ControlPanel({
         </div>
         <p className="text-[11px] text-stone-500">沒有頭像時會顯示一個簡約的人形。</p>
       </div>
+
+      <OutfitEditor userId={userId} outfit={outfit} onChange={onOutfitChange} />
 
       <div className="flex gap-2 border-t border-stone-700 pt-3">
         <button type="button" onClick={onOpenCalendar} className={`${btn} bg-stone-800 hover:bg-stone-700`}>

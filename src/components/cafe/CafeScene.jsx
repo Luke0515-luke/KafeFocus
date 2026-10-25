@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import CafeDecor from './CafeDecor';
@@ -6,6 +6,7 @@ import Seat3D from './Seat3D';
 import UserAvatar3D, { preloadAvatar } from './UserAvatar3D';
 import WalkersLayer from './WalkersLayer';
 import { THEMES } from '../../config/themes';
+import { PaletteContext, makePalette } from './palette';
 
 // 燈光全部來自主題（src/config/themes.js）。太暗就調高該主題的 ambient / hemi / key，太亮就調低。
 function Lights({ theme }) {
@@ -47,12 +48,14 @@ export default function CafeScene({
   useEffect(() => {
     seats.forEach((s) => preloadAvatar(s.occupant_avatar_url));
   }, [seats]);
+  const palette = useMemo(() => makePalette(theme.palette), [theme]);
 
   return (
     <div className={className ?? 'h-full w-full'}>
       <Canvas shadows dpr={[1, 2]} camera={{ position: [3, 8.5, 12.5], fov: 45 }} gl={{ antialias: true }}>
         <color attach="background" args={[theme.bg]} />
         <fog attach="fog" args={[theme.bg, theme.fog[0], theme.fog[1]]} />
+        <PaletteContext.Provider value={palette}>
         <Lights theme={theme} />
         <CafeDecor theme={theme} />
 
@@ -60,7 +63,7 @@ export default function CafeScene({
           <group key={seat.id}>
             <Seat3D seat={seat} occupied={!!seat.occupant_id} onSelect={onSeatSelect} />
             {seat.occupant_id && (
-              <UserAvatar3D seat={seat} isSelf={seat.occupant_id === currentUserId} bubble={players?.bubbles?.[seat.occupant_id]} />
+              <UserAvatar3D seat={seat} isSelf={seat.occupant_id === currentUserId} bubble={players?.bubbles?.[seat.occupant_id]} outfit={players?.outfits?.[seat.occupant_id]} />
             )}
           </group>
         ))}
@@ -78,6 +81,8 @@ export default function CafeScene({
         {players && (
           <WalkersLayer players={players} seats={seats} currentUserId={currentUserId} selfName={selfName} selfAvatarUrl={selfAvatarUrl} />
         )}
+
+        </PaletteContext.Provider>
 
         {/* 左牆與後牆是實心的，所以限制鏡頭不能繞到牆後面 */}
         <OrbitControls

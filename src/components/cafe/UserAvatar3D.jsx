@@ -12,6 +12,7 @@ import { createSeatedState, stepActivity, SIT } from './seatedMotion';
 import SeatProps from './SeatProps';
 import SpeechBubble from './Bubble';
 import { seatStyle } from './layout';
+import { applyOutfitToRig, outfitKey, resolveOutfit } from '../../lib/outfit';
 import { AvatarErrorBoundary } from './AvatarErrorBoundary';
 import { useCountdown, formatMMSS } from '../../hooks/useCountdown';
 import { sanitizeAvatarUrl } from '../../lib/avatarUrl';
@@ -63,13 +64,6 @@ function AvatarHud({ seat, isSelf, y, bubble }) {
 }
 
 /* ------------------------- 占位角色（沒頭像 / 載入中 / 載入失敗）：低調的人形 ------------------------- */
-const CLOTHES = ['#5b4636', '#3f4f48', '#44465a', '#5d4343', '#51493a'];
-const hashColor = (id = '') => {
-  let h = 0;
-  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return CLOTHES[h % CLOTHES.length];
-};
-
 const ARM_A = 0.32; // 占位角色：上臂、前臂長度（卡通比例，稍長一點才搆得到桌面）
 const ARM_B = 0.36;
 const _S = new THREE.Vector3(); const _E = new THREE.Vector3(); const _H = new THREE.Vector3();
@@ -86,8 +80,9 @@ function placeSegment(mesh, p, q, baseLen) {
   mesh.scale.set(1, len / baseLen, 1);
 }
 
-function PlaceholderAvatar({ seat, isSelf, dim = false, bubble, st, style }) {
-  const cloth = hashColor(seat.occupant_id ?? '');
+function PlaceholderAvatar({ seat, isSelf, dim = false, bubble, st, style, outfit }) {
+  const o = useMemo(() => resolveOutfit(outfit, seat.occupant_id ?? ''), [outfitKey(outfit), seat.occupant_id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const legLen = Math.max(0.3, seat.pos_y - 0.06);
   const mat = { transparent: dim, opacity: dim ? 0.5 : 1, roughness: 0.85 };
   const body = useRef();
   const armRefs = useRef({});
@@ -126,28 +121,45 @@ function PlaceholderAvatar({ seat, isSelf, dim = false, bubble, st, style }) {
         {/* 軀幹 */}
         <mesh position={[0, 0.34, 0]} castShadow>
           <capsuleGeometry args={[0.16, 0.26, 6, 14]} />
-          <meshStandardMaterial color={cloth} {...mat} />
+          <meshStandardMaterial color={o.shirt} {...mat} />
         </mesh>
         {/* 頭與頭髮 */}
         <mesh position={[0, 0.7, 0.01]} castShadow>
           <sphereGeometry args={[0.11, 22, 18]} />
-          <meshStandardMaterial color="#d2a984" {...mat} />
+          <meshStandardMaterial color={o.skin} {...mat} />
         </mesh>
         <mesh position={[0, 0.725, -0.005]} castShadow>
           <sphereGeometry args={[0.118, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
-          <meshStandardMaterial color="#241912" {...mat} />
+          <meshStandardMaterial color={o.hair} {...mat} />
         </mesh>
       </group>
+      {/* 雙腿：大腿水平向前、小腿垂到地面（褲子顏色） */}
+      {[-1, 1].map((sx) => (
+        <group key={sx} position={[sx * 0.1, 0, 0.06]}>
+          <mesh position={[0, 0.075, 0.18]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <capsuleGeometry args={[0.07, 0.3, 4, 10]} />
+            <meshStandardMaterial color={o.pants} {...mat} />
+          </mesh>
+          <mesh position={[0, 0.075 - legLen / 2, 0.4]} castShadow>
+            <capsuleGeometry args={[0.055, Math.max(0.05, legLen - 0.11), 4, 10]} />
+            <meshStandardMaterial color={o.pants} {...mat} />
+          </mesh>
+          <mesh position={[0, -seat.pos_y + 0.03, 0.46]} castShadow>
+            <boxGeometry args={[0.1, 0.06, 0.2]} />
+            <meshStandardMaterial color="#1c1a19" {...mat} />
+          </mesh>
+        </group>
+      ))}
       {/* 雙臂（每幀由 IK 擺放） */}
       {['L', 'R'].map((side) => (
         <group key={side}>
           <mesh ref={setArm(`${side}u`)} castShadow>
             <capsuleGeometry args={[0.04, ARM_A - 0.08, 4, 10]} />
-            <meshStandardMaterial color={cloth} {...mat} />
+            <meshStandardMaterial color={o.shirt} {...mat} />
           </mesh>
           <mesh ref={setArm(`${side}f`)} castShadow>
             <capsuleGeometry args={[0.035, ARM_B - 0.07, 4, 10]} />
-            <meshStandardMaterial color="#d2a984" {...mat} />
+            <meshStandardMaterial color={o.skin} {...mat} />
           </mesh>
         </group>
       ))}
@@ -157,7 +169,7 @@ function PlaceholderAvatar({ seat, isSelf, dim = false, bubble, st, style }) {
 }
 
 /* ------------------------- Ready Player Me 模型 ------------------------- */
-function AvatarModel({ url, seat, isSelf, bubble, st, style }) {
+function AvatarModel({ url, seat, isSelf, bubble, st, style, outfit }) {
   const { scene } = useGLTF(url); // 載入失敗會 throw，由外層 ErrorBoundary 接住
 
   // 每位玩家各自 clone 一份，並只做一次坐姿擺放
@@ -170,8 +182,9 @@ function AvatarModel({ url, seat, isSelf, bubble, st, style }) {
         o.frustumCulled = false; // 擺完姿勢後原本的包圍盒不準，關掉避免角色被誤剔除
       }
     });
+    applyOutfitToRig(root, resolveOutfit(outfit, seat.occupant_id ?? '')); // 只有使用者自訂過才會動材質
     return { root, info: applySittingPose(root) };
-  }, [scene]);
+  }, [scene, outfitKey(outfit), seat.occupant_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hipHeight = rig.info?.hipHeight ?? FALLBACK_HIP_HEIGHT;
   const headHeight = rig.info?.headHeight ?? hipHeight + 0.65;
@@ -225,20 +238,20 @@ function AvatarModel({ url, seat, isSelf, bubble, st, style }) {
 }
 
 /* ------------------------- 對外組件 ------------------------- */
-export default function UserAvatar3D({ seat, isSelf = false, bubble }) {
+export default function UserAvatar3D({ seat, isSelf = false, bubble, outfit }) {
   const url = useMemo(() => sanitizeAvatarUrl(seat.occupant_avatar_url), [seat.occupant_avatar_url]);
   const style = seatStyle(seat);
   const st = useRef(null);
   if (!st.current) st.current = createSeatedState();
-  const placeholder = <PlaceholderAvatar seat={seat} isSelf={isSelf} bubble={bubble} st={st} style={style} />;
+  const placeholder = <PlaceholderAvatar seat={seat} isSelf={isSelf} bubble={bubble} st={st} style={style} outfit={outfit} />;
 
   return (
     // 座標：seat.pos_* 是椅面中心；rot_y 決定面向
     <group position={[seat.pos_x, seat.pos_y, seat.pos_z]} rotation={[0, seat.rot_y, 0]}>
       {url ? (
         <AvatarErrorBoundary key={url} fallback={placeholder}>
-          <Suspense fallback={<PlaceholderAvatar seat={seat} isSelf={isSelf} dim bubble={bubble} st={st} style={style} />}>
-            <AvatarModel url={url} seat={seat} isSelf={isSelf} bubble={bubble} st={st} style={style} />
+          <Suspense fallback={<PlaceholderAvatar seat={seat} isSelf={isSelf} dim bubble={bubble} st={st} style={style} outfit={outfit} />}>
+            <AvatarModel url={url} seat={seat} isSelf={isSelf} bubble={bubble} st={st} style={style} outfit={outfit} />
           </Suspense>
         </AvatarErrorBoundary>
       ) : (

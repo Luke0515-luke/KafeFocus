@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html, RoundedBox } from '@react-three/drei';
 import { seatStyle } from './layout';
+import { usePalette } from './palette';
 
 const METAL = { color: '#1b1b1d', roughness: 0.45, metalness: 0.7 };
 const BRASS = { color: '#a8844f', roughness: 0.35, metalness: 0.85 };
@@ -33,12 +34,13 @@ function Stool({ seatY, leather }) {
 }
 
 function WoodChair({ seatY, leather }) {
+  const P = usePalette();
   const legH = seatY - 0.06;
   return (
     <group>
       <mesh position={[0, seatY - 0.07, 0]} castShadow>
         <boxGeometry args={[0.46, 0.04, 0.46]} />
-        <meshStandardMaterial {...DARK_WOOD} />
+        <meshStandardMaterial {...P.chairWood} />
       </mesh>
       <RoundedBox args={[0.42, 0.05, 0.42]} radius={0.02} smoothness={3} position={[0, seatY - 0.025, 0]} castShadow>
         <meshStandardMaterial color={leather} roughness={0.55} />
@@ -46,19 +48,19 @@ function WoodChair({ seatY, leather }) {
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z]) => (
         <mesh key={`${x}${z}`} position={[x * 0.2, legH / 2, z * 0.2]} castShadow>
           <boxGeometry args={[0.04, legH, 0.04]} />
-          <meshStandardMaterial {...DARK_WOOD} />
+          <meshStandardMaterial {...P.chairWood} />
         </mesh>
       ))}
       {[-1, 1].map((x) => (
         <mesh key={x} position={[x * 0.2, seatY + 0.2, -0.21]} castShadow>
           <boxGeometry args={[0.04, 0.5, 0.04]} />
-          <meshStandardMaterial {...DARK_WOOD} />
+          <meshStandardMaterial {...P.chairWood} />
         </mesh>
       ))}
       {[0.28, 0.4].map((dy) => (
         <mesh key={dy} position={[0, seatY + dy, -0.21]} castShadow>
           <boxGeometry args={[0.42, 0.07, 0.025]} />
-          <meshStandardMaterial {...DARK_WOOD} />
+          <meshStandardMaterial {...P.chairWood} />
         </mesh>
       ))}
     </group>
@@ -66,6 +68,7 @@ function WoodChair({ seatY, leather }) {
 }
 
 function BistroChair({ seatY, wood = false }) {
+  const P = usePalette();
   const legH = seatY - 0.04;
   return (
     <group>
@@ -76,7 +79,7 @@ function BistroChair({ seatY, wood = false }) {
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z]) => (
         <mesh key={`${x}${z}`} position={[x * 0.14, legH / 2, z * 0.14]} castShadow>
           <cylinderGeometry args={[0.009, 0.009, legH, 8]} />
-          <meshStandardMaterial {...(wood ? DARK_WOOD : METAL)} />
+          <meshStandardMaterial {...(wood ? P.chairWood : METAL)} />
         </mesh>
       ))}
       {/* 包住背部的弧形椅背 */}
@@ -144,11 +147,12 @@ function Armchair({ seatY, leather }) {
 }
 
 function BoothSeat({ seatY, leather }) {
+  const P = usePalette();
   return (
     <group>
       <mesh position={[0, (seatY - 0.14) / 2, -0.02]} castShadow>
         <boxGeometry args={[1.2, seatY - 0.14, 0.6]} />
-        <meshStandardMaterial {...DARK_WOOD} />
+        <meshStandardMaterial {...P.chairWood} />
       </mesh>
       <RoundedBox args={[1.2, 0.14, 0.62]} radius={0.05} smoothness={3} position={[0, seatY - 0.07, -0.02]} castShadow>
         <meshStandardMaterial color={leather} roughness={0.45} />
@@ -161,8 +165,9 @@ function BoothSeat({ seatY, leather }) {
 }
 
 function Chair({ seat }) {
+  const P = usePalette();
   const style = seatStyle(seat);
-  const leather = LEATHERS[seat.seat_index % LEATHERS.length];
+  const leather = P.leathers[seat.seat_index % P.leathers.length];
   const y = seat.pos_y;
   if (style === 'stool') return <Stool seatY={y} leather={leather} />;
   if (style === 'bistro') return <BistroChair seatY={y} />;
@@ -175,6 +180,7 @@ function Chair({ seat }) {
 
 /** 椅子 +（空位時）懸浮的互動光球。桌子由 Tables.jsx 統一擺放。 */
 export default function Seat3D({ seat, occupied, onSelect }) {
+  const P = usePalette();
   const [hovered, setHovered] = useState(false);
   const marker = useRef();
   const baseY = seat.pos_y + 0.8;
@@ -199,11 +205,11 @@ export default function Seat3D({ seat, occupied, onSelect }) {
         <group ref={marker} position={[0, baseY, 0]}>
           <mesh>
             <sphereGeometry args={[hovered ? 0.1 : 0.07, 20, 20]} />
-            <meshBasicMaterial color={hovered ? '#ffbe73' : '#e0a766'} toneMapped={false} />
+            <meshBasicMaterial color={hovered ? P.orbHover : P.orb} toneMapped={false} />
           </mesh>
           <mesh>
             <ringGeometry args={[hovered ? 0.17 : 0.13, hovered ? 0.185 : 0.14, 32]} />
-            <meshBasicMaterial color="#e0a766" transparent opacity={0.55} toneMapped={false} depthWrite={false} />
+            <meshBasicMaterial color={P.orb} transparent opacity={0.55} toneMapped={false} depthWrite={false} />
           </mesh>
           <mesh {...handlers}>
             <sphereGeometry args={[0.38, 12, 12]} />

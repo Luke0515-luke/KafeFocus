@@ -7,6 +7,7 @@ import { animateWalk, createWalkRig } from './walkPose';
 import SpeechBubble from './Bubble';
 import { AvatarErrorBoundary } from './AvatarErrorBoundary';
 import { sanitizeAvatarUrl } from '../../lib/avatarUrl';
+import { applyOutfitToRig, outfitKey, resolveOutfit } from '../../lib/outfit';
 
 const dampAngle = (cur, target, lambda, dt) => {
   let d = ((target - cur + Math.PI) % (Math.PI * 2)) - Math.PI;
@@ -32,34 +33,76 @@ function NameTag({ name, isSelf, y, bubble }) {
   );
 }
 
-/** 沒有頭像 / 載入中 / 載入失敗時的簡約人形（也會擺腿） */
-function PlaceholderWalker({ motion, name, isSelf, bubble, dim = false }) {
+/** 一隻會擺動的手臂：肩膀擺動 → 手肘彎曲。上臂是衣服色（短袖），前臂與手是膚色。 */
+function Arm({ side, armRef, foreRef, outfit, mat }) {
+  return (
+    <group ref={armRef} position={[side * 0.215, 1.22, 0]}>
+      <mesh position={[0, -0.15, 0]} castShadow>
+        <capsuleGeometry args={[0.052, 0.2, 4, 10]} />
+        <meshStandardMaterial color={outfit.shirt} {...mat} />
+      </mesh>
+      <group ref={foreRef} position={[0, -0.3, 0]}>
+        <mesh position={[0, -0.14, 0]} castShadow>
+          <capsuleGeometry args={[0.042, 0.18, 4, 10]} />
+          <meshStandardMaterial color={outfit.skin} {...mat} />
+        </mesh>
+        <mesh position={[0, -0.3, 0.01]} castShadow>
+          <sphereGeometry args={[0.05, 12, 10]} />
+          <meshStandardMaterial color={outfit.skin} {...mat} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+/** 沒有頭像 / 載入中 / 載入失敗時的簡約人形：會擺腿、擺手（手臂與腿反向擺動），顏色用自訂外觀 */
+function PlaceholderWalker({ motion, name, isSelf, bubble, dim = false, uid, outfit: rawOutfit }) {
+  const o = useMemo(() => resolveOutfit(rawOutfit, uid), [outfitKey(rawOutfit), uid]); // eslint-disable-line react-hooks/exhaustive-deps
   const legL = useRef(); const legR = useRef();
+  const armL = useRef(); const armR = useRef(); const foreL = useRef(); const foreR = useRef();
   const mat = { transparent: dim, opacity: dim ? 0.5 : 1, roughness: 0.85 };
   useFrame(() => {
-    const s = Math.sin(motion.current.phase) * 0.5 * motion.current.amt;
-    if (legL.current) legL.current.rotation.x = s;
-    if (legR.current) legR.current.rotation.x = -s;
+    const { phase, amt } = motion.current;
+    const s = Math.sin(phase);
+    if (legL.current) legL.current.rotation.x = s * 0.5 * amt;
+    if (legR.current) legR.current.rotation.x = -s * 0.5 * amt;
+    // 手臂與同側的腿反向：左腿往後時左手往前（負角度 = 往前）
+    if (armL.current) armL.current.rotation.x = -s * 0.7 * amt;
+    if (armR.current) armR.current.rotation.x = s * 0.7 * amt;
+    const bendL = -(0.12 + 0.3 * amt + 0.25 * Math.max(0, s) * amt);
+    const bendR = -(0.12 + 0.3 * amt + 0.25 * Math.max(0, -s) * amt);
+    if (foreL.current) foreL.current.rotation.x = bendL;
+    if (foreR.current) foreR.current.rotation.x = bendR;
   });
   return (
     <group>
+      {/* 軀幹（上衣） */}
       <mesh position={[0, 1.0, 0]} castShadow>
         <capsuleGeometry args={[0.16, 0.3, 6, 14]} />
-        <meshStandardMaterial color={isSelf ? '#7a5a3a' : '#4a5a52'} {...mat} />
+        <meshStandardMaterial color={o.shirt} {...mat} />
       </mesh>
+      {/* 頭與頭髮 */}
       <mesh position={[0, 1.5, 0.01]} castShadow>
         <sphereGeometry args={[0.11, 22, 18]} />
-        <meshStandardMaterial color="#d2a984" {...mat} />
+        <meshStandardMaterial color={o.skin} {...mat} />
       </mesh>
       <mesh position={[0, 1.525, -0.005]} castShadow>
         <sphereGeometry args={[0.118, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
-        <meshStandardMaterial color="#241912" {...mat} />
+        <meshStandardMaterial color={o.hair} {...mat} />
       </mesh>
+      {/* 雙臂：側面看得到，不會再「消失」 */}
+      <Arm side={1} armRef={armL} foreRef={foreL} outfit={o} mat={mat} />
+      <Arm side={-1} armRef={armR} foreRef={foreR} outfit={o} mat={mat} />
+      {/* 雙腿（褲子）與鞋子 */}
       {[[legL, -0.08], [legR, 0.08]].map(([ref, x], i) => (
         <group key={i} ref={ref} position={[x, 0.78, 0]}>
           <mesh position={[0, -0.36, 0]} castShadow>
             <capsuleGeometry args={[0.055, 0.6, 4, 10]} />
-            <meshStandardMaterial color="#2f3236" {...mat} />
+            <meshStandardMaterial color={o.pants} {...mat} />
+          </mesh>
+          <mesh position={[0, -0.74, 0.04]} castShadow>
+            <boxGeometry args={[0.1, 0.06, 0.18]} />
+            <meshStandardMaterial color="#1c1a19" {...mat} />
           </mesh>
         </group>
       ))}
@@ -68,15 +111,16 @@ function PlaceholderWalker({ motion, name, isSelf, bubble, dim = false }) {
   );
 }
 
-function WalkerModel({ url, motion, name, isSelf, bubble }) {
+function WalkerModel({ url, motion, name, isSelf, bubble, uid, outfit }) {
   const { scene } = useGLTF(url);
   const rig = useMemo(() => {
     const root = cloneSkinned(scene);
     root.traverse((o) => {
       if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; }
     });
+    applyOutfitToRig(root, resolveOutfit(outfit, uid)); // 只有使用者自訂過才會動材質
     return { root, info: createWalkRig(root) };
-  }, [scene]);
+  }, [scene, outfitKey(outfit), uid]); // eslint-disable-line react-hooks/exhaustive-deps
   const bob = useRef();
 
   useFrame(({ clock }) => {
@@ -98,7 +142,7 @@ function WalkerModel({ url, motion, name, isSelf, bubble }) {
  * 站著 / 走路的角色。
  * stateRef.current = { x, z, rot, moving }：本人由模擬直接更新；別人（smooth）則會平滑地追向網路傳來的位置。
  */
-export default function WalkerAvatar3D({ stateRef, url: rawUrl, name, isSelf = false, bubble, smooth = false }) {
+export default function WalkerAvatar3D({ stateRef, url: rawUrl, name, isSelf = false, bubble, smooth = false, uid, outfit }) {
   const url = useMemo(() => sanitizeAvatarUrl(rawUrl), [rawUrl]);
   const outer = useRef();
   const vis = useRef(null);
@@ -130,13 +174,13 @@ export default function WalkerAvatar3D({ stateRef, url: rawUrl, name, isSelf = f
     m.phase += dt * 8.5 * (moving ? 1 : m.amt);
   });
 
-  const placeholder = <PlaceholderWalker motion={motion} name={name} isSelf={isSelf} bubble={bubble} />;
+  const placeholder = <PlaceholderWalker motion={motion} name={name} isSelf={isSelf} bubble={bubble} uid={uid} outfit={outfit} />;
   return (
     <group ref={outer}>
       {url ? (
         <AvatarErrorBoundary key={url} fallback={placeholder}>
-          <Suspense fallback={<PlaceholderWalker motion={motion} name={name} isSelf={isSelf} bubble={bubble} dim />}>
-            <WalkerModel url={url} motion={motion} name={name} isSelf={isSelf} bubble={bubble} />
+          <Suspense fallback={<PlaceholderWalker motion={motion} name={name} isSelf={isSelf} bubble={bubble} uid={uid} outfit={outfit} dim />}>
+            <WalkerModel url={url} motion={motion} name={name} isSelf={isSelf} bubble={bubble} uid={uid} outfit={outfit} />
           </Suspense>
         </AvatarErrorBoundary>
       ) : (

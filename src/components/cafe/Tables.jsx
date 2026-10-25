@@ -1,3 +1,4 @@
+import { usePalette } from './palette';
 import { RoundedBox } from '@react-three/drei';
 import { TABLES } from './layout';
 
@@ -71,15 +72,16 @@ function Vase({ position = [0, 0, 0] }) {
 
 /* ---------- 五種桌子 ---------- */
 function BarTable({ t }) {
+  const P = usePalette();
   const { length: L, depth: D, height: h } = t;
   return (
     <group position={t.position}>
       <mesh position={[0, (h - 0.06) / 2, -D * 0.1]} castShadow receiveShadow>
         <boxGeometry args={[L - 0.1, h - 0.06, D * 0.7]} />
-        <meshStandardMaterial color="#24160e" roughness={0.7} />
+        <meshStandardMaterial color={P.barBody} roughness={0.7} />
       </mesh>
       <RoundedBox args={[L, 0.06, D]} radius={0.015} smoothness={2} position={[0, h - 0.03, 0]} castShadow receiveShadow>
-        <meshStandardMaterial color="#3a2415" roughness={0.3} metalness={0.05} />
+        <meshStandardMaterial color={P.barTop} roughness={0.3} metalness={0.05} />
       </RoundedBox>
       <mesh position={[0, 0.22, D / 2 + 0.12]} rotation={[0, 0, Math.PI / 2]} castShadow>
         <cylinderGeometry args={[0.02, 0.02, L - 0.4, 12]} />
@@ -93,11 +95,12 @@ function BarTable({ t }) {
 }
 
 function SlabTable({ t }) {
+  const P = usePalette();
   const { length: L, depth: D, height: h } = t;
   return (
     <group position={t.position} rotation={[0, t.rotationY ?? 0, 0]}>
       <RoundedBox args={[L, 0.07, D]} radius={0.015} smoothness={2} position={[0, h - 0.035, 0]} castShadow receiveShadow>
-        <meshStandardMaterial color="#5a3a24" roughness={0.5} />
+        <meshStandardMaterial color={P.slab} roughness={0.5} />
       </RoundedBox>
       {[-1, 1].map((s) => (
         <mesh key={s} position={[s * (L / 2 - 0.3), (h - 0.07) / 2, 0]} castShadow>
@@ -123,12 +126,13 @@ function SlabTable({ t }) {
 }
 
 function CafeRoundTable({ t }) {
+  const P = usePalette();
   const { radius: r, height: h } = t;
   return (
     <group position={t.position}>
       <mesh position={[0, h - 0.02, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[r, r, 0.04, 40]} />
-        <meshStandardMaterial color="#5a3a24" roughness={0.5} />
+        <meshStandardMaterial color={P.slab} roughness={0.5} />
       </mesh>
       <mesh position={[0, (h - 0.04) / 2, 0]} castShadow>
         <cylinderGeometry args={[0.03, 0.04, h - 0.04, 12]} />
@@ -167,12 +171,13 @@ function MarbleTable({ t, marble }) {
 }
 
 function SquareTable({ t }) {
+  const P = usePalette();
   const { size: s, height: h } = t;
   const o = s / 2 - 0.06;
   return (
     <group position={t.position}>
       <RoundedBox args={[s, 0.04, s]} radius={0.01} smoothness={2} position={[0, h - 0.02, 0]} castShadow receiveShadow>
-        <meshStandardMaterial color="#6b4a30" roughness={0.75} />
+        <meshStandardMaterial color={P.square} roughness={0.75} />
       </RoundedBox>
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, z]) => (
         <mesh key={`${x}${z}`} position={[x * o, (h - 0.04) / 2, z * o]} castShadow>
@@ -193,12 +198,13 @@ function SquareTable({ t }) {
 }
 
 function LowTable({ t }) {
+  const P = usePalette();
   const { radius: r, height: h } = t;
   return (
     <group position={t.position}>
       <mesh position={[0, h - 0.02, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[r, r, 0.04, 40]} />
-        <meshStandardMaterial color="#2f1f15" roughness={0.35} />
+        <meshStandardMaterial color={P.low} roughness={0.35} />
       </mesh>
       {[0, 1, 2].map((i) => {
         const a = (i / 3) * Math.PI * 2;

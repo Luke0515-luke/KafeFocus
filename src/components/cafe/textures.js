@@ -101,12 +101,12 @@ function drawSlats(g, W, H, { base, slat }) {
   }
 }
 
-function drawMarble(g, W, H) {
+function drawMarble(g, W, H, light = false) {
   const rnd = rngFactory(9);
-  g.fillStyle = '#17171a';
+  g.fillStyle = light ? '#ebe7de' : '#17171a';
   g.fillRect(0, 0, W, H);
   for (let i = 0; i < 14; i += 1) {
-    g.strokeStyle = `rgba(235,235,235,${0.12 + rnd() * 0.35})`;
+    g.strokeStyle = light ? `rgba(110,118,112,${0.12 + rnd() * 0.3})` : `rgba(235,235,235,${0.12 + rnd() * 0.35})`;
     g.lineWidth = 0.6 + rnd() * 1.8;
     g.beginPath();
     let x = rnd() * W;
@@ -209,7 +209,7 @@ export function useCafeTextures(theme) {
       ? make(512, 256, (g, W, H) => drawBrick(g, W, H, theme.backWall), [10.2, 4.3])
       : make(256, 256, (g, W, H) => drawPlaster(g, W, H, theme.backWall), [4, 2]),
     slats: make(256, 256, (g, W, H) => drawSlats(g, W, H, theme.sideWall), [17.5, 6.5]),
-    marble: make(256, 256, drawMarble),
+    marble: make(256, 256, (g, W, H) => drawMarble(g, W, H, !!theme.light)),
     dusk: make(256, 256, drawSky(theme.sky)),
     menu: make(512, 256, drawMenu),
     art: [0, 1, 2].map((v) => make(256, 320, drawArt(v))),

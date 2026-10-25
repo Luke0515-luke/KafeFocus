@@ -32,12 +32,12 @@ export default function WalkersLayer({ players, seats, currentUserId, selfName, 
     <>
       {players.showMe && (
         <WalkerAvatar3D
-          stateRef={players.meRef} url={selfAvatarUrl} name={selfName} isSelf
+          stateRef={players.meRef} url={selfAvatarUrl} name={selfName} isSelf uid={currentUserId} outfit={players.outfits[currentUserId]}
           bubble={players.bubbles[currentUserId]}
         />
       )}
       {players.others.filter((o) => !seatedIds.has(o.id)).map((o) => (
-        <WalkerAvatar3D key={o.id} stateRef={o.ref} url={o.avatar} name={o.name} bubble={players.bubbles[o.id]} smooth />
+        <WalkerAvatar3D key={o.id} stateRef={o.ref} url={o.avatar} name={o.name} bubble={players.bubbles[o.id]} smooth uid={o.id} outfit={players.outfits[o.id]} />
       ))}
       <DestMarker destRef={players.destRef} />
     </>
