@@ -119,7 +119,8 @@ export function generatePlan({ items, doneSessions = [], prefs: rawPrefs, now = 
   const peak = prefs.chronotype === 'evening' ? 'evening' : prefs.chronotype === 'morning' ? 'morning' : null;
 
   // ---- 2. 逐日配置 ----
-  const run = (cap) => {
+  // relax=true：忽略個人時段與每項目的時段限制，改用 07:00–23:30 的彈性時段（用在原本排不下時）
+  const run = (cap, relax = false) => {
     const ts = tasks.map((t) => ({ ...t, remaining: t.need, daysSet: new Set(t.days) }));
     const sessions = [];
     const overloadDays = [];
@@ -155,8 +156,8 @@ export function generatePlan({ items, doneSessions = [], prefs: rawPrefs, now = 
 
       // 2c. 放進時段
       const wins = {};
-      winOrder.forEach((id) => {
-        const w = prefs.windows[id];
+      (relax ? ['flex'] : winOrder).forEach((id) => {
+        const w = relax ? { on: true, start: '07:00', end: '23:30' } : prefs.windows[id];
         if (!w.on) return;
         let start = toMin(w.start);
         const end = toMin(w.end);
@@ -174,8 +175,8 @@ export function generatePlan({ items, doneSessions = [], prefs: rawPrefs, now = 
       };
       const placed = [];
       seq.forEach(({ t, size }) => {
-        const allowed = winOrder.filter((id) => wins[id] && t.windows.includes(id));
-        const pool = allowed.length ? allowed : winOrder.filter((id) => wins[id]);
+        const allowed = Object.keys(wins).filter((id) => relax || t.windows.includes(id));
+        const pool = allowed.length ? allowed : Object.keys(wins);
         const ordered = t.diff >= 2 && peak
           ? [...pool.filter((i) => i === peak), ...pool.filter((i) => i !== peak)]
           : t.diff === 1 && peak
@@ -184,10 +185,11 @@ export function generatePlan({ items, doneSessions = [], prefs: rawPrefs, now = 
         for (const id of ordered) {
           const w = wins[id];
           const c = skipBusy(w.cursor, size);
-          if (c + size <= w.end) {
-            placed.push({ t, size, start: c });
+          const fit = c + size <= w.end ? size : Math.floor((w.end - c) / 5) * 5; // 放不下就縮短塞進剩餘時間（≥15 分）
+          if (fit >= 15 || fit === size) {
+            placed.push({ t, size: fit, start: c });
             w.run += 1;
-            w.cursor = c + size + (w.run >= 2 ? Math.max(20, prefs.breakMin * 2) : prefs.breakMin);
+            w.cursor = c + fit + (w.run >= 2 ? Math.max(20, prefs.breakMin * 2) : prefs.breakMin);
             if (w.run >= 2) w.run = 0;
             return;
           }
@@ -212,12 +214,19 @@ export function generatePlan({ items, doneSessions = [], prefs: rawPrefs, now = 
     const heavy = run(Math.min(600, Math.round(prefs.dailyMax * 1.5)));
     if (unmetSum(heavy) < unmetSum(result)) result = heavy;
   }
+  let relaxed = false;
+  if (unmetSum(result)) {
+    // 第三關：使用者設定的時段不夠用 → 放寬到 07:00–23:30，仍盡量不超過每日上限
+    const flex = run(Math.min(600, Math.round(prefs.dailyMax * 1.5)), true);
+    if (unmetSum(flex) < unmetSum(result)) { result = flex; relaxed = true; }
+  }
+  if (relaxed) warnings.push({ type: 'relaxed', text: '你設定的讀書時段不夠排，部分區塊已排在時段之外（07:00–23:30）。' });
   if (result.overloadDays.length) {
     warnings.push({ type: 'overload', text: `有 ${result.overloadDays.length} 天超過你設定的每日上限（${prefs.dailyMax} 分鐘），因為期限太緊。建議放寬期限或減少項目。` });
   }
   items.forEach((it) => {
     const miss = result.unmet[it.id];
-    if (miss > 0) warnings.push({ type: 'unmet', itemId: it.id, text: `「${it.title}」在期限前仍排不下 ${miss} 分鐘：請延後期限、增加可用時段／星期，或提高每日上限。` });
+    if (miss > 0) warnings.push({ type: 'unmet', itemId: it.id, text: `「${it.title}」在期限前仍排不下 ${miss} 分鐘：已用盡 07:00–23:30 與每日上限，請延後期限、增加可用星期，或減少預計時間。` });
   });
 
   return {
