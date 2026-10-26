@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+# 上線後把下一行換成你的網址（並另外放 sitemap.xml）：
+# Sitemap: https://你的網域/sitemap.xml
