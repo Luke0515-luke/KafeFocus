@@ -98,7 +98,7 @@ function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, o
     const { data, error: e } = await supabase.rpc('complete_study_session', { p_session_id: id, p_today: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, p_done: true });
     if (e || !data || data.already) return;
     const bonus = (data.bonuses ?? []).map((b) => `${b.label} +${b.xp}`).join('、');
-    setToast(`${base ? `${base}　` : ''}✅ 計畫區塊完成　+${data.xp_gained} XP${bonus ? `　${bonus}` : ''}${data.level > data.prev_level ? `　🎉 升級 Lv.${data.level} ${beanInfo(data.level).emoji}${beanInfo(data.level).name}` : ''}`);
+    setToast(`${base ? `${base}　` : ''}✅ 計畫區塊完成　+${data.xp_gained} XP${bonus ? `　${bonus}` : ''}${data.level > data.prev_level ? `　🎉 升級 Lv.${data.level} ${beanInfo(data.level).emoji}${beanInfo(data.level).full}` : ''}`);
     loadPlan();
   }, [loadPlan]);
 
