@@ -71,6 +71,30 @@ export const THEMES = {
     features: { piano: false, records: false, hanging: 5, plants: 8 },
     preview: ['#f6f2e8', '#2a6b4d'],
   },
+  neon: {
+    id: 'neon',
+    bg: '#0a0716', fog: [20, 40],
+    ambient: ['#7c6cff', 0.4],
+    hemi: ['#6a5cff', '#1a0b2e', 0.45],
+    key: ['#ff6ad5', 0.55],
+    lamp: ['#ff3fa4', 1.5],                        // 霓虹粉燈光
+    floor: ['#15122a', '#1b1636', '#110e24', '#1e1840', '#161230'],
+    backWall: { type: 'plaster', color: '#1d1840' },
+    sideWall: { base: '#0b0818', slat: '#2a1f5c' },
+    sky: 'neon', trim: '#05030d',
+    accent: '#22d3ee',                             // 青色霓虹牆裙
+    rugs: [['#2a0f4a', '#3d1566', '#12082a'], ['#0e2a3d', '#14405a', '#081824']],
+    palette: {
+      leathers: ['#3b1c63', '#4a2380', '#2a1347', '#5b2a99'],
+      chairWood: { color: '#14102a', roughness: 0.35 },
+      barBody: '#120d26', barTop: '#241a4a',
+      slab: '#1e1740', square: '#261d52', low: '#150f30',
+      counter: '#0f2a3a', sofa: '#4a1d7a', shade: '#ff2e93',
+      orb: '#22d3ee', orbHover: '#7df3ff',
+    },
+    features: { piano: false, records: true, hanging: 4, plants: 3 },
+    preview: ['#1a0f3a', '#ff2e93'],
+  },
   forest: {
     id: 'forest',
     bg: '#16221a', fog: [24, 44],
@@ -103,6 +127,10 @@ export const CAFES = {
   'bright-corner': {
     theme: 'bright', icon: 'Store', name: '晴光轉角咖啡館',
     blurb: '白牆、淺色木地板與品牌綠牆裙，落地窗灑進整片日光，明亮寬敞的連鎖咖啡館風格。', tags: ['明亮', '白天', '綠意'],
+  },
+  'neon-rain': {
+    theme: 'neon', icon: 'Zap', name: '雨夜霓虹',
+    blurb: '窗外是下著雨的賽博城市，粉紫與青色霓虹映在深色桌面上，夜貓子專屬的專注角落。', tags: ['賽博', '霓虹', '夜晚'],
   },
   'forest-reading': {
     theme: 'forest', icon: 'Leaf', name: '森林書屋',
