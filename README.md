@@ -48,3 +48,9 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 1. Supabase → SQL Editor 重新執行 `study_planner.sql`（可重複執行）。
 2. 再執行新的 `forum_guest.sql`。
 3. 重新部署前端。
+
+## 7. 介面與效能優化（電腦 / 手機）
+- **大廳秒開**：3D 場景改為「進咖啡廳才下載」（`React.lazy`），大型套件拆成獨立檔案（`vite.config.js`）。大廳首次載入從單一約 1.5 MB 的檔案，變成約 0.5 MB（react + supabase + 本站程式，gzip 約 150 KB）；three / r3f（約 0.9 MB）要進咖啡廳才會下載。
+- **大廳**：我的狀態卡（目前咖啡豆、經驗條、今天專注時間）、搜尋咖啡廳、排序（人少 / 人多優先）、「隨機進一間」；手機上按鈕改成滿版圖示列，並避開瀏覽器安全區。
+- **專注體驗**：手機專注時螢幕不熄滅（Wake Lock）、時間到且分頁在背景時送出系統通知、`Esc` 關閉最上層視窗。
+- `index.html`：`viewport-fit=cover`、`theme-color`、網頁描述。
