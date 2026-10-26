@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, CalendarDays, ChevronDown, ChevronUp, Coffee, ListChecks, LogIn, LogOut, MessagesSquare, Trophy, Users, Wifi, WifiOff } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarDays, Flag, ChevronDown, ChevronUp, Coffee, ListChecks, LogIn, LogOut, MessagesSquare, Trophy, Users, Wifi, WifiOff } from 'lucide-react';
 import { formatMMSS, useCountdown } from '../../hooks/useCountdown';
 import { sanitizeAvatarUrl } from '../../lib/avatarUrl';
 import OutfitEditor from './OutfitEditor';
@@ -20,7 +20,7 @@ const clampMin = (v, fallback) => Math.min(120, Math.max(1, Math.round(Number(v)
 export default function ControlPanel({
   cafeName, profile, mySeat, connection, onlineCount, notice, userId, outfit, onOutfitChange,
   onSetStatus, onLeave, onSaveAvatar, onBack, onSignOut, onOpenCalendar, onOpenPlanner, onOpenBoard,
-  planToday = [], onFocusPlan, isGuest = false, onSignIn, onOpenForum,
+  planToday = [], onFocusPlan, onEndFocus, isGuest = false, onSignIn, onOpenForum,
 }) {
   const [task, setTask] = useState('');
   const [focusMin, setFocusMin] = useState(() => lsGet(FOCUS_KEY, 25));
@@ -86,6 +86,12 @@ export default function ControlPanel({
     else { setBreakMin(value); lsSet(BREAK_KEY, clampMin(value, 5)); }
   };
 
+  // 專注中：已專注幾分鐘（每秒由倒數重繪帶動）；時間到後顯示「已自動記錄」提示
+  const studying = mySeat?.status === 'studying';
+  const elapsedMin = studying && mySeat?.phase_started_at
+    ? Math.max(0, Math.floor((Date.now() - new Date(mySeat.phase_started_at).getTime()) / 60000)) : 0;
+  const timeUp = studying && remaining === 0;
+
   const collapseOnPhone = () => { if (!isWide()) setOpen(false); };
   const startFocus = () => run(async () => {
     try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch { /* 忽略 */ }
@@ -113,7 +119,6 @@ export default function ControlPanel({
   const input = 'w-full rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-amber-500';
 
   if (!open) {
-    const studying = mySeat?.status === 'studying';
     return (
       <div className="absolute left-2 top-2 z-20 flex max-w-[calc(100vw-1rem)] items-center gap-1 rounded-full bg-stone-900/85 py-1 pl-1 pr-1 text-xs text-stone-300 shadow-lg ring-1 ring-stone-700 backdrop-blur sm:left-4 sm:top-4">
         <button type="button" onClick={onBack} aria-label="回到咖啡廳大廳" className="grid h-8 w-8 place-items-center rounded-full hover:bg-stone-800"><ArrowLeft size={16} /></button>
@@ -191,6 +196,9 @@ export default function ControlPanel({
               </div>
             </div>
           )}
+          {timeUp && (
+            <p className="rounded-lg bg-emerald-900/60 p-2 text-xs text-emerald-100">⏰ 時間到！這一輪已自動記錄，可以休息一下再繼續。</p>
+          )}
           <input value={task} onChange={(e) => { setTask(e.target.value); if (planId) setPlanId(null); }} maxLength={40} placeholder="這輪要做什麼？（例：微積分習題）" className={input} />
           <div className="flex gap-2">
             <button type="button" disabled={busy} onClick={startFocus} className={`${btn} bg-amber-600 text-white hover:bg-amber-500`}>
@@ -200,6 +208,13 @@ export default function ControlPanel({
               <Coffee size={16} /> 休息
             </button>
           </div>
+          {studying && !timeUp && onEndFocus && (
+            <button type="button" disabled={busy || elapsedMin < 1} onClick={() => run(onEndFocus)}
+              title="提前結束這一輪，依實際專注分鐘數記錄（不算完成計畫區塊）"
+              className={`${btn} w-full bg-stone-800 text-amber-200 ring-1 ring-amber-700/60 hover:bg-stone-700`}>
+              <Flag size={16} /> 提前結束{elapsedMin >= 1 ? `並記錄 ${elapsedMin} 分鐘` : '（至少專注 1 分鐘才能記錄）'}
+            </button>
+          )}
           <button type="button" disabled={busy} onClick={() => run(onLeave)} className={`${btn} w-full bg-stone-800 text-stone-300 ring-1 ring-stone-600 hover:bg-stone-700`}>
             離座（起身走走）
           </button>
