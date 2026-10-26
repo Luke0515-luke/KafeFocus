@@ -132,6 +132,7 @@ function drawSky(kind) {
       day: ['#8fc3ee', '#c5e1f5', '#eef6fb'],
       forest: ['#6fa070', '#3f6b45', '#233d2a'],
       neon: ['#07061a', '#1a0f3a', '#3a1450'],
+      sakura: ['#f4cfd8', '#f0b9c7', '#d9a0ae'],
     }[kind];
     grad.addColorStop(0, stops[0]);
     grad.addColorStop(0.6, stops[1]);
@@ -161,6 +162,14 @@ function drawSky(kind) {
         const x = rnd() * W; const y = rnd() * H;
         g.beginPath(); g.moveTo(x, y); g.lineTo(x - 5, y + 16); g.stroke();
       }
+    } else if (kind === 'sakura') {
+      for (let i = 0; i < 60; i += 1) {
+        g.fillStyle = `rgba(255,${200 + Math.floor(rnd() * 40)},${215 + Math.floor(rnd() * 30)},${0.5 + rnd() * 0.5})`;
+        g.beginPath();
+        g.ellipse(rnd() * W, rnd() * H, 4 + rnd() * 6, 2.5 + rnd() * 3, rnd() * Math.PI, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.strokeStyle = '#5a3a2a'; g.lineWidth = 7; g.beginPath(); g.moveTo(0, H * 0.9); g.quadraticCurveTo(W * 0.4, H * 0.55, W, H * 0.35); g.stroke();
     } else if (kind === 'dusk' || kind === 'night') {
       for (let i = 0; i < 46; i += 1) {
         g.fillStyle = `rgba(255,${190 + Math.floor(rnd() * 50)},${120 + Math.floor(rnd() * 80)},${0.25 + rnd() * 0.5})`;

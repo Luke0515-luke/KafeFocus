@@ -6,6 +6,7 @@ import Tables from './Tables';
 import { PLANT_SPOTS } from './layout';
 import PianoPlayer from './PianoPlayer';
 import { usePalette } from './palette';
+import { NeonDecor, ZenDecor } from './ThemeDecor';
 
 const BLACK_METAL = { color: '#1b1b1d', roughness: 0.45, metalness: 0.7 };
 const BRASS = { color: '#a8844f', roughness: 0.35, metalness: 0.85 };
@@ -453,6 +454,7 @@ export default function CafeDecor({ theme }) {
   const tex = useCafeTextures(theme);
   const f = theme.features;
   const dark = !theme.light;
+  const custom = !!theme.decor; // 有專屬擺飾的主題（neon / zen）不使用通用的鋼琴、書櫃、植栽、吊燈
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 2]} receiveShadow>
@@ -465,25 +467,29 @@ export default function CafeDecor({ theme }) {
       <Window position={[1.8, 2.7, -4.88]} sky={tex.dusk} />
       <Window position={[5.2, 2.7, -4.88]} sky={tex.dusk} />
       <Window position={[-8.88, 2.6, 3.0]} rotationY={Math.PI / 2} w={2.6} sky={tex.dusk} />
-      <FairyLights theme={theme} />
-      <WallClock position={[-0.2, 3.0, -4.84]} />
-      <WallShelf position={[3.5, 4.35, -4.7]} length={5.5} />
-      <WallShelf position={[-6.4, 4.3, -4.7]} length={3.6} />
+      {!custom && <FairyLights theme={theme} />}
+      {!custom && <WallClock position={[-0.2, 3.0, -4.84]} />}
+      {!custom && <WallShelf position={[3.5, 4.35, -4.7]} length={5.5} />}
+      {!custom && <WallShelf position={[-6.4, 4.3, -4.7]} length={3.6} />}
+      {theme.decor === 'neon' && <NeonDecor />}
+      {theme.decor === 'zen' && <ZenDecor />}
       <BaristaCounter menu={tex.menu} />
-      <Sideboard position={[-2.2, 0, -4.55]} records={f.records} />
+      {!custom && <Sideboard position={[-2.2, 0, -4.55]} records={f.records} />}
       {f.piano && <Piano position={[8.0, 0, -4.55]} />}
       {f.piano && <PianoPlayer position={[8.0, 0, -4.55]} />}
-      <LeftWallDecor art={tex.art} />
-      <Bookcase position={[-8.6, 0, 7.6]} />
+      {!custom && <LeftWallDecor art={tex.art} />}
+      {!custom && <Bookcase position={[-8.6, 0, 7.6]} />}
       <SofaCorner theme={theme} />
 
       <Rug position={[-5.6, 0, 5.0]} size={[4.2, 3.2]} colors={theme.rugs?.[0] ?? (dark ? ['#4a1f1c', '#5b2a22', '#3a2a22'] : ['#a8756a', '#c08a7c', '#d8c3a8'])} />
       <Rug position={[1.0, 0, 1.0]} size={[5.4, 3.6]} colors={theme.rugs?.[1] ?? (dark ? ['#2b2622', '#3a322c', '#241f1c'] : ['#8d7c68', '#a89580', '#cdbba2'])} />
       <Tables textures={tex} />
 
-      {PLANT_SPOTS.slice(0, f.plants).map(([x, y, z, sc], i) => <Plant key={i} position={[x, y, z]} scale={sc} seed={i + 1} />)}
-      {EXTRA_LAMP_SPOTS.slice(0, f.hanging).map((p) => <PendantLamp key={p.join()} position={p} theme={theme} />)}
+      {!custom && PLANT_SPOTS.slice(0, f.plants).map(([x, y, z, sc], i) => <Plant key={i} position={[x, y, z]} scale={sc} seed={i + 1} />)}
+      {!custom && EXTRA_LAMP_SPOTS.slice(0, f.hanging).map((p) => <PendantLamp key={p.join()} position={p} theme={theme} />)}
 
+      {!custom && (
+        <>
       {/* 吊燈：每個桌區各一盞；只有 6 盞會真的打光 */}
       <PendantLamp position={[1.5, 3.0, -3.8]} theme={theme} />
       <PendantLamp position={[3.5, 3.0, -3.8]} theme={theme} light intensity={20} />
@@ -495,6 +501,8 @@ export default function CafeDecor({ theme }) {
       <PendantLamp position={[-3.0, 3.2, 1.0]} theme={theme} />
       <PendantLamp position={[-3.0, 3.2, 4.0]} theme={theme} />
       <PendantLamp position={[-7.0, 3.0, -2.0]} theme={theme} />
+        </>
+      )}
     </group>
   );
 }

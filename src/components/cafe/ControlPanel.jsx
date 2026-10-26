@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, BookOpen, CalendarDays, ChevronDown, ChevronUp, Coffee, ListChecks, LogOut, Trophy, Users, Wifi, WifiOff } from 'lucide-react';
 import { formatMMSS, useCountdown } from '../../hooks/useCountdown';
 import { sanitizeAvatarUrl } from '../../lib/avatarUrl';
@@ -20,6 +20,7 @@ const clampMin = (v, fallback) => Math.min(120, Math.max(1, Math.round(Number(v)
 export default function ControlPanel({
   cafeName, profile, mySeat, connection, onlineCount, notice, userId, outfit, onOutfitChange,
   onSetStatus, onLeave, onSaveAvatar, onBack, onSignOut, onOpenCalendar, onOpenPlanner, onOpenBoard,
+  planToday = [], onFocusPlan,
 }) {
   const [task, setTask] = useState('');
   const [focusMin, setFocusMin] = useState(() => lsGet(FOCUS_KEY, 25));
@@ -29,6 +30,30 @@ export default function ControlPanel({
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(isWide);
   const remaining = useCountdown(mySeat?.phase_ends_at);
+  const [planId, setPlanId] = useState(null);
+
+  // 分頁標題顯示倒數；時間到時響一聲提示音
+  useEffect(() => {
+    if (!mySeat || remaining == null) { document.title = 'KafeFocus'; return undefined; }
+    document.title = remaining === 0 ? '⏰ 時間到！· KafeFocus' : `${mySeat.status === 'studying' ? '📖' : '☕'} ${formatMMSS(remaining)} · KafeFocus`;
+    return undefined;
+  }, [mySeat, remaining]);
+  useEffect(() => () => { document.title = 'KafeFocus'; }, []);
+  const chimedRef = useRef(null);
+  useEffect(() => {
+    if (remaining !== 0 || !mySeat?.phase_ends_at || chimedRef.current === mySeat.phase_ends_at) return;
+    chimedRef.current = mySeat.phase_ends_at;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [660, 880, 1100].forEach((f, i) => {
+        const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.frequency.value = f; o.connect(g); g.connect(ctx.destination);
+        const t0 = ctx.currentTime + i * 0.22;
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.2, t0 + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4);
+        o.start(t0); o.stop(t0 + 0.45);
+      });
+    } catch { /* 瀏覽器不允許自動播放聲音時略過 */ }
+  }, [remaining, mySeat?.phase_ends_at]);
 
   useEffect(() => { setAvatarInput(profile?.avatar_url ?? ''); }, [profile?.avatar_url]);
 
@@ -44,7 +69,15 @@ export default function ControlPanel({
   };
 
   const collapseOnPhone = () => { if (!isWide()) setOpen(false); };
-  const startFocus = () => run(async () => { await onSetStatus('studying', task, clampMin(focusMin, 25) * 60); collapseOnPhone(); });
+  const startFocus = () => run(async () => {
+    onFocusPlan?.(planId);
+    await onSetStatus('studying', task, clampMin(focusMin, 25) * 60);
+    collapseOnPhone();
+  });
+  const pickPlan = (s) => {
+    setPlanId(s.id); setTask(s.title.slice(0, 40));
+    setMinutes('focus', Math.min(120, s.minutes));
+  };
   const startBreak = () => run(async () => { await onSetStatus('break', '', clampMin(breakMin, 5) * 60); collapseOnPhone(); });
 
   const saveAvatar = () => run(async () => {
@@ -125,7 +158,20 @@ export default function ControlPanel({
 
       {mySeat && (
         <div className="space-y-2">
-          <input value={task} onChange={(e) => setTask(e.target.value)} maxLength={40} placeholder="這輪要做什麼？（例：微積分習題）" className={input} />
+          {planToday.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[11px] text-stone-500">今日計畫（選一個，專注跑完會自動完成並得 XP）</div>
+              <div className="flex flex-wrap gap-1.5">
+                {planToday.slice(0, 6).map((s) => (
+                  <button key={s.id} type="button" onClick={() => pickPlan(s)}
+                    className={`max-w-full truncate rounded-full px-2.5 py-1 text-xs ${planId === s.id ? 'bg-amber-600 text-white' : 'bg-stone-800 text-stone-300 hover:bg-stone-700'}`}>
+                    {s.kind === 'review' ? '複習 ' : ''}{s.title} · {s.minutes}分
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <input value={task} onChange={(e) => { setTask(e.target.value); if (planId) setPlanId(null); }} maxLength={40} placeholder="這輪要做什麼？（例：微積分習題）" className={input} />
           <div className="flex gap-2">
             <button type="button" disabled={busy} onClick={startFocus} className={`${btn} bg-amber-600 text-white hover:bg-amber-500`}>
               <BookOpen size={16} /> 開始專注
