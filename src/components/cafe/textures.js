@@ -131,13 +131,37 @@ function drawSky(kind) {
       night: ['#050814', '#111a33', '#2a2a44'],
       day: ['#8fc3ee', '#c5e1f5', '#eef6fb'],
       forest: ['#6fa070', '#3f6b45', '#233d2a'],
+      neon: ['#07061a', '#1a0f3a', '#3a1450'],
     }[kind];
     grad.addColorStop(0, stops[0]);
     grad.addColorStop(0.6, stops[1]);
     grad.addColorStop(1, stops[2]);
     g.fillStyle = grad;
     g.fillRect(0, 0, W, H);
-    if (kind === 'dusk' || kind === 'night') {
+    if (kind === 'neon') {
+      // 雨夜賽博城市：遠處高樓剪影 + 霓虹招牌 + 斜斜的雨絲
+      const neon = ['#ff2e93', '#22d3ee', '#a855f7', '#facc15', '#34d399'];
+      for (let i = 0; i < 9; i += 1) {
+        const bw = 26 + rnd() * 34; const bh = H * (0.25 + rnd() * 0.5); const bx = (i / 9) * W + rnd() * 10;
+        g.fillStyle = `rgba(10,8,28,${0.8 + rnd() * 0.2})`;
+        g.fillRect(bx, H - bh, bw, bh);
+        for (let k = 0; k < 7; k += 1) {
+          g.fillStyle = rnd() > 0.55 ? neon[Math.floor(rnd() * neon.length)] : 'rgba(255,255,255,0.12)';
+          g.fillRect(bx + 4 + rnd() * (bw - 10), H - bh + 6 + rnd() * (bh - 14), 3, 4);
+        }
+      }
+      for (let i = 0; i < 5; i += 1) {
+        const c = neon[Math.floor(rnd() * neon.length)];
+        g.shadowColor = c; g.shadowBlur = 16; g.fillStyle = c;
+        g.fillRect(rnd() * (W - 40), H * (0.3 + rnd() * 0.4), 14 + rnd() * 26, 5);
+      }
+      g.shadowBlur = 0;
+      g.strokeStyle = 'rgba(190,210,255,0.35)'; g.lineWidth = 1;
+      for (let i = 0; i < 90; i += 1) {
+        const x = rnd() * W; const y = rnd() * H;
+        g.beginPath(); g.moveTo(x, y); g.lineTo(x - 5, y + 16); g.stroke();
+      }
+    } else if (kind === 'dusk' || kind === 'night') {
       for (let i = 0; i < 46; i += 1) {
         g.fillStyle = `rgba(255,${190 + Math.floor(rnd() * 50)},${120 + Math.floor(rnd() * 80)},${0.25 + rnd() * 0.5})`;
         g.beginPath();
