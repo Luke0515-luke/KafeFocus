@@ -81,7 +81,7 @@ export const THEMES = {
     floor: ['#15122a', '#1b1636', '#110e24', '#1e1840', '#161230'],
     backWall: { type: 'plaster', color: '#1d1840' },
     sideWall: { base: '#0b0818', slat: '#2a1f5c' },
-    sky: 'neon', trim: '#05030d', decor: 'neon',
+    sky: 'neon', trim: '#05030d', decor: 'neon', furniture: 'neon',
     accent: '#22d3ee',                             // 青色霓虹牆裙
     rugs: [['#2a0f4a', '#3d1566', '#12082a'], ['#0e2a3d', '#14405a', '#081824']],
     palette: {
@@ -105,7 +105,7 @@ export const THEMES = {
     floor: ['#b99a68', '#ad8f5f', '#c2a373', '#a88a5a', '#b49565'],
     backWall: { type: 'plaster', color: '#d8c8a2' },
     sideWall: { base: '#3a2616', slat: '#7a5a3a' },
-    sky: 'sakura', trim: '#2a1a0e', decor: 'zen',
+    sky: 'sakura', trim: '#2a1a0e', decor: 'zen', furniture: 'zen', floorType: 'tatami',
     accent: '#a32a2a',
     rugs: [['#7a8a5a', '#8d9b6c', '#5f6e45'], ['#c9b98f', '#d6c8a2', '#b8a87c']],
     palette: {
@@ -118,6 +118,29 @@ export const THEMES = {
     },
     features: { piano: false, records: false, hanging: 0, plants: 0 },
     preview: ['#d8c8a2', '#a32a2a'],
+  },
+  nordic: {
+    id: 'nordic',
+    light: true,
+    bg: '#e8edf1', fog: [34, 60],
+    ambient: ['#ffffff', 1.2],
+    hemi: ['#f4f8ff', '#d9d2c4', 1.0],
+    key: ['#fff4e2', 1.45],
+    lamp: ['#ffe4b8', 0.8],
+    floor: ['#e6d3b0', '#e0cba6', '#ebd9b8', '#dcc69f', '#e3cfab'],
+    floorType: 'birch',
+    backWall: { type: 'plaster', color: '#f4f3ef' },
+    sideWall: { base: '#e8e6df', slat: '#f6f4ee' },
+    sky: 'snow', trim: '#c9b48f', decor: 'nordic', furniture: 'nordic',
+    accent: '#9db4c0',
+    rugs: [['#e8e4dc', '#f3efe6', '#d9d3c6'], ['#cfd9dc', '#dfe7e9', '#bccbd0']],
+    palette: {
+      sofa: '#b9c6bd', counter: '#f1ede4', barBody: '#e9d8bd', barTop: '#f6efe0',
+      slab: '#efe0c6', square: '#efe0c6', low: '#e6d3b0', shade: '#f7f4ee',
+      orb: '#7fae98', orbHover: '#a9d3bf',
+    },
+    features: { piano: false, records: false, hanging: 0, plants: 0 },
+    preview: ['#f4f3ef', '#9db4c0'],
   },
   forest: {
     id: 'forest',
@@ -158,7 +181,11 @@ export const CAFES = {
   },
   'zen-tea': {
     theme: 'zen', icon: 'Flower2', name: '櫻語茶屋',
-    blurb: '拉門紙窗、紙燈籠與盆栽櫻花，一角立著朱紅鳥居，安靜的和風茶屋。', tags: ['和風', '安靜', '傍晚'],
+    blurb: '鋪滿榻榻米的和室，矮茶几配布座墊，需要跪坐。拉門紙窗、床之間掛軸、紙燈籠與枯山水。', tags: ['和風', '榻榻米', '跪坐'],
+  },
+  'nordic-cafe': {
+    theme: 'nordic', icon: 'Snowflake', name: '北歐暖光咖啡館',
+    blurb: '白牆、淺色樺木地板與布面座椅，圓球吊燈、壁爐與雪景窗外，簡潔溫暖的北歐風。', tags: ['北歐', '明亮', '溫暖'],
   },
   'forest-reading': {
     theme: 'forest', icon: 'Leaf', name: '森林書屋',
