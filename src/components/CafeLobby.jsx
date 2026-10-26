@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Coffee, Leaf, ListChecks, LogOut, Music, Store, Sun, Trophy, Users, Zap, Flower2, Snowflake } from 'lucide-react';
+import { CalendarDays, Coffee, LogIn, MessagesSquare, Leaf, ListChecks, LogOut, Music, Store, Sun, Trophy, Users, Zap, Flower2, Snowflake } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { CAFE_ORDER, getMeta, getTheme } from '../config/themes';
 
 const ICONS = { Coffee, Music, Sun, Leaf, Store, Zap, Flower2, Snowflake };
 
 /** 首頁：列出所有咖啡廳，顯示即時人數，點選進入。 */
-export default function CafeLobby({ session, onSelect, onSignOut, onOpenCalendar, onOpenPlanner, onOpenBoard }) {
-  const userId = session.user.id;
+export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOpenCalendar, onOpenPlanner, onOpenBoard, onOpenForum }) {
+  const userId = session?.user?.id ?? null; // 訪客 = null：可以逛，但不載入個人資料
   const [cafes, setCafes] = useState(null);
   const [counts, setCounts] = useState({});
   const [name, setName] = useState('');
@@ -18,7 +18,7 @@ export default function CafeLobby({ session, onSelect, onSignOut, onOpenCalendar
     (async () => {
       const [c, p] = await Promise.all([
         supabase.from('cafes').select('id, slug, name'),
-        supabase.from('profiles').select('display_name').eq('id', userId).maybeSingle(),
+        userId ? supabase.from('profiles').select('display_name').eq('id', userId).maybeSingle() : Promise.resolve({ data: null }),
       ]);
       if (!alive) return;
       if (c.error) setError(`讀取咖啡廳失敗：${c.error.message}`); else setCafes(c.data ?? []);
@@ -58,11 +58,14 @@ export default function CafeLobby({ session, onSelect, onSignOut, onOpenCalendar
         <header className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-3xl font-semibold text-stone-100">KafeFocus</h1>
-            <p className="mt-1 text-sm text-stone-400">{name ? `${name}，` : ''}選一間咖啡廳，找個位子一起專注。</p>
+            <p className="mt-1 text-sm text-stone-400">{userId ? `${name ? `${name}，` : ''}選一間咖啡廳，找個位子一起專注。` : '歡迎參觀！先逛逛每間咖啡廳，想入座或新增行程時再註冊就好。'}</p>
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={onOpenPlanner} className="flex items-center gap-1.5 rounded-lg bg-amber-700 px-3 py-2 text-sm text-white hover:bg-amber-600">
               <ListChecks size={16} /> 讀書計畫
+            </button>
+            <button type="button" onClick={onOpenForum} className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-sm hover:bg-stone-700">
+              <MessagesSquare size={16} /> 讀書論壇
             </button>
             <button type="button" onClick={onOpenBoard} className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-sm hover:bg-stone-700">
               <Trophy size={16} /> 排行榜
@@ -70,9 +73,15 @@ export default function CafeLobby({ session, onSelect, onSignOut, onOpenCalendar
             <button type="button" onClick={onOpenCalendar} className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-sm hover:bg-stone-700">
               <CalendarDays size={16} /> 行事曆
             </button>
-            <button type="button" onClick={onSignOut} className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-sm hover:bg-stone-700">
-              <LogOut size={16} /> 登出
-            </button>
+            {userId ? (
+              <button type="button" onClick={onSignOut} className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-sm hover:bg-stone-700">
+                <LogOut size={16} /> 登出
+              </button>
+            ) : (
+              <button type="button" onClick={() => onSignIn()} className="flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-2 text-sm text-white hover:bg-emerald-600">
+                <LogIn size={16} /> 登入 / 註冊
+              </button>
+            )}
           </div>
         </header>
 

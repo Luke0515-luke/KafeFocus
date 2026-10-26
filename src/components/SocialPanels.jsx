@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { BookOpen, Flame, Trophy, X } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { dateKey } from '../lib/scheduler';
-import { fmtDuration, levelTitle, openProfile } from '../lib/openProfile';
+import { BEANS, beanInfo, fmtDuration, levelTitle, openProfile } from '../lib/openProfile';
 
 const dayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); };
 const dbMsg = (m = '') => (/study_leaderboard|study_user_card|schema cache|does not exist/i.test(m) ? '資料庫還沒有排行榜功能：請到 Supabase → SQL Editor 執行 study_planner.sql 一次。' : m);
@@ -28,7 +28,7 @@ export function UserCard({ userId, myId, onClose }) {
             <Avatar name={card?.display_name} />
             <div>
               <div className="text-lg font-semibold text-stone-100">{card?.display_name ?? (card === undefined ? '載入中…' : '找不到使用者')}{userId === myId ? '（你）' : ''}</div>
-              {card && <div className="text-xs text-amber-400">Lv.{card.level} {levelTitle(card.level)} · {card.xp} XP</div>}
+              {card && <div className="text-xs text-amber-400">Lv.{card.level} {beanInfo(card.level).emoji} {levelTitle(card.level)} · {card.xp} XP</div>}
             </div>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-stone-800" aria-label="關閉"><X size={18} /></button>
@@ -39,6 +39,16 @@ export function UserCard({ userId, myId, onClose }) {
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-xl bg-stone-800 p-3"><div className="text-xs text-stone-400">總讀書時間</div><div className="mt-1 text-lg font-semibold text-stone-100">{fmtDuration(card.total_minutes)}</div></div>
               <div className="rounded-xl bg-stone-800 p-3"><div className="text-xs text-stone-400">今天讀書時間</div><div className="mt-1 text-lg font-semibold text-emerald-400">{fmtDuration(card.today_minutes)}</div></div>
+            </div>
+            <div className="mt-3 rounded-xl bg-stone-800 p-3">
+              <div className="text-xs text-stone-400">目前的咖啡豆種子</div>
+              <div className="mt-0.5 text-sm font-semibold text-amber-300">{beanInfo(card.level).emoji} {beanInfo(card.level).name}</div>
+              <div className="text-[11px] text-stone-500">{beanInfo(card.level).origin}・{beanInfo(card.level).note}</div>
+              <div className="mt-2 flex flex-wrap gap-1" aria-label="咖啡豆圖鑑">
+                {BEANS.map((b, i) => (
+                  <span key={b.name} title={i < card.level ? b.name : '尚未解鎖'} className={`grid h-5 w-5 place-items-center rounded text-[11px] ${i < card.level ? 'bg-amber-700/70' : 'bg-stone-700/50 opacity-40'}`}>{i < card.level ? b.emoji : '·'}</span>
+                ))}
+              </div>
             </div>
             <div className="mt-3 flex items-center gap-1.5 text-sm text-stone-300"><Flame size={15} className="text-orange-400" />連續完成計畫 {card.streak} 天</div>
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -90,7 +100,7 @@ export function LeaderboardPanel({ myId, onClose }) {
                 <Avatar name={r.display_name} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-stone-100">{r.display_name}{r.user_id === myId ? '（你）' : ''}</span>
-                  <span className="block text-xs text-stone-500">Lv.{r.level} {levelTitle(r.level)} · {r.xp} XP</span>
+                  <span className="block text-xs text-stone-500">Lv.{r.level} {beanInfo(r.level).emoji}{levelTitle(r.level)} · {r.xp} XP</span>
                 </span>
                 <span className="shrink-0 text-right text-xs">
                   <span className="flex items-center justify-end gap-1 text-emerald-400"><BookOpen size={11} />今天 {fmtDuration(r.today_minutes)}</span>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Flag, RefreshCw, Sparkles, Trash2, X } from 'lucide-react';
 import { useStudyPlan } from '../hooks/useStudyPlan';
 import { addDays, dateKey, diffDays, parseDate, toMin } from '../lib/scheduler';
-import { fmtDuration, levelStart, levelTitle } from '../lib/openProfile';
+import { beanInfo, fmtDuration, levelStart, levelTitle } from '../lib/openProfile';
 
 const WD = ['日', '一', '二', '三', '四', '五', '六'];
 const WD_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -304,7 +304,7 @@ export default function PlannerPanel({ userId, onClose }) {
             <div className="animate-bounce rounded-2xl bg-amber-500 px-5 py-3 text-center text-stone-950 shadow-2xl">
               <div className="text-lg font-bold">☕ +{reward.xp_gained} XP{reward.capped ? '（今日已達經驗上限）' : ''}</div>
               {(reward.bonuses ?? []).map((b, i) => <div key={i} className="text-sm font-medium">{b.label} +{b.xp}</div>)}
-              {reward.level > reward.prev_level && <div className="mt-1 text-sm font-bold">🎉 升級！Lv.{reward.level} {levelTitle(reward.level)}</div>}
+              {reward.level > reward.prev_level && <div className="mt-1 text-sm font-bold">🎉 升級！Lv.{reward.level} {beanInfo(reward.level).emoji} {levelTitle(reward.level)}</div>}
             </div>
           </div>
         )}
