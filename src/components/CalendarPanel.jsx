@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Clock, Trash2, X } from 'lucide-react';
 import { dateKey, useCalendar } from '../hooks/useCalendar';
+import { backdropProps } from '../lib/backdrop';
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 // Tailwind 需要完整字串才會產生對應樣式，所以不能用字串拼接
@@ -65,7 +66,7 @@ export default function CalendarPanel({ userId, onClose }) {
   const [sy, sm, sd] = selected.split('-').map(Number);
 
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-2 sm:p-3" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-2 sm:p-3" {...backdropProps(onClose)}>
       <div
         className="flex max-h-[94dvh] w-full max-w-4xl flex-col overflow-y-auto overscroll-contain rounded-2xl bg-stone-900 text-stone-200 shadow-2xl ring-1 ring-stone-700 md:flex-row md:overflow-hidden"
         onClick={(e) => e.stopPropagation()}

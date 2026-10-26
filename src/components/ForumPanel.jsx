@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Flag, Heart, MessageCircle, MessagesSquare, PenSquare, RefreshCw, Trash2, X } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { openProfile } from '../lib/openProfile';
+import { backdropProps } from '../lib/backdrop';
 
 export const CATEGORIES = [
   ['pomodoro', '番茄鐘 / 專注'], ['active-recall', '主動回憶'], ['spaced', '間隔複習'], ['feynman', '費曼技巧'],
@@ -84,7 +85,7 @@ export default function ForumPanel({ userId, onClose, onRequireAuth }) {
   const current = posts?.find((p) => p.id === openId) ?? null;
 
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-2 sm:p-3" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-2 sm:p-3" {...backdropProps(onClose)}>
       <div className="flex max-h-[92dvh] w-full max-w-2xl flex-col rounded-2xl bg-stone-900 text-stone-200 shadow-2xl ring-1 ring-stone-700" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="讀書論壇">
         <div className="flex items-center justify-between gap-2 px-4 pt-4">
           <div className="flex min-w-0 items-center gap-2">

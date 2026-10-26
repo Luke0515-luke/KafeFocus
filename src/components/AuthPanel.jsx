@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { backdropProps } from '../lib/backdrop';
 
 /** modal=true 時變成浮在畫面上的登入／註冊視窗（訪客想新增行程、入座、聊天時才會出現）。 */
 export default function AuthPanel({ modal = false, hint = '', onClose }) {
@@ -71,7 +72,7 @@ export default function AuthPanel({ modal = false, hint = '', onClose }) {
   );
 
   if (modal) {
-    return <div className="fixed inset-0 z-[90] grid place-items-center overflow-y-auto bg-black/70 p-4" onClick={onClose} role="dialog" aria-label="登入或註冊">{card}</div>;
+    return <div className="fixed inset-0 z-[90] grid place-items-center overflow-y-auto bg-black/70 p-4" {...backdropProps(onClose)} role="dialog" aria-label="登入或註冊">{card}</div>;
   }
   return <div className="flex h-full items-center justify-center p-4">{card}</div>;
 }

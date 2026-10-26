@@ -1,12 +1,13 @@
 import { X } from 'lucide-react';
 import { PLAYLIST } from '../config/playlist';
+import { backdropProps } from '../lib/backdrop';
 
 const CONTACT = import.meta.env.VITE_CONTACT_EMAIL; // 選填：侵權通報 / 下架聯絡信箱
 
 /** 版權與授權頁：音樂作者與授權、開源套件、使用者內容與下架方式。 */
 export default function CreditsPanel({ onClose }) {
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-2 sm:p-3" onClick={onClose}>
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-2 sm:p-3" {...backdropProps(onClose)}>
       <div className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-2xl bg-stone-900 text-stone-200 shadow-2xl ring-1 ring-stone-700" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="版權與授權">
         <div className="flex items-center justify-between px-4 pt-4">
           <h2 className="text-lg font-semibold text-stone-100">版權與授權</h2>

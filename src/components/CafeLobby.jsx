@@ -202,6 +202,8 @@ export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOp
         </div>
         <footer className="mt-8 text-center text-xs text-stone-600">
           <button type="button" onClick={onOpenCredits} className="hover:text-stone-400 hover:underline">版權與授權</button>
+          <span className="mx-2">·</span>
+          <a href="https://www.threads.com/@0515luke" target="_blank" rel="noopener noreferrer" className="hover:text-stone-400 hover:underline">創作者 Threads @0515luke</a>
         </footer>
       </div>
     </div>

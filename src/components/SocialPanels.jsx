@@ -3,6 +3,7 @@ import { BookOpen, Flame, Trophy, X } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { dateKey } from '../lib/scheduler';
 import { BEANS, beanInfo, fmtDuration, levelTitle, openProfile } from '../lib/openProfile';
+import { backdropProps } from '../lib/backdrop';
 
 const dayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); };
 const dbMsg = (m = '') => (/study_leaderboard|study_user_card|schema cache|does not exist/i.test(m) ? '資料庫還沒有排行榜功能：請到 Supabase → SQL Editor 執行 study_planner.sql 一次。' : m);
@@ -21,7 +22,7 @@ export function UserCard({ userId, myId, onClose }) {
     return () => { alive = false; };
   }, [userId]);
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-3" onClick={onClose}>
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-3" {...backdropProps(onClose)}>
       <div className="w-full max-w-sm rounded-2xl bg-stone-900 p-5 text-stone-200 shadow-2xl ring-1 ring-stone-700" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="使用者資料卡">
         <div className="mb-4 flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -79,7 +80,7 @@ export function LeaderboardPanel({ myId, onClose }) {
   }, [sort]);
   const medal = (n) => ['🥇', '🥈', '🥉'][n - 1] ?? n;
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-2 sm:p-3" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-2 sm:p-3" {...backdropProps(onClose)}>
       <div className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-2xl bg-stone-900 text-stone-200 shadow-2xl ring-1 ring-stone-700" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="排行榜">
         <div className="flex items-center justify-between px-4 pt-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-stone-100"><Trophy size={18} className="text-amber-400" />讀書排行榜</h2>

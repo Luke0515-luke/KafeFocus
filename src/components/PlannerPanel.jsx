@@ -3,6 +3,7 @@ import { AlertTriangle, Check, Flag, RefreshCw, Sparkles, Trash2, X } from 'luci
 import { useStudyPlan } from '../hooks/useStudyPlan';
 import { addDays, dateKey, diffDays, parseDate, toMin } from '../lib/scheduler';
 import { beanInfo, fmtDuration, levelStart, levelTitle } from '../lib/openProfile';
+import { backdropProps } from '../lib/backdrop';
 
 const WD = ['日', '一', '二', '三', '四', '五', '六'];
 const WD_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -205,7 +206,7 @@ export default function PlannerPanel({ userId, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-2 sm:p-3" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-2 sm:p-3" {...backdropProps(onClose)}>
       <div className="relative flex max-h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-stone-900 text-stone-200 shadow-2xl ring-1 ring-stone-700" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="讀書計畫">
         <div className="flex items-center justify-between gap-3 border-b border-stone-700 px-4 py-3">
           <div className="min-w-0">
