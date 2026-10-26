@@ -11,7 +11,7 @@ import { TABLES, seatStyle } from './layout';
  */
 
 const GLOWS = ['#22d3ee', '#ff2e93', '#a855f7'];
-const NORDIC_FABRICS = ['#c8d3cb', '#dccbb4', '#a9bccd', '#e5cfc6'];
+const NORDIC_FABRICS = ['#d8d2c4', '#b9b4aa', '#c7b79c', '#8f9490']; // 燕麥、暖灰、沙色、石墨灰（北歐常見的羊毛 / 亞麻色）
 const ZABUTON = ['#2b3a55', '#7a2a2f', '#4f5d3a', '#3a3a52'];
 
 const Glow = ({ position, size, color }) => (
@@ -28,7 +28,7 @@ function TableProps({ f, h, xs = [0], z = 0 }) {
         ? <>{/* 茶壺 */}<mesh position={[0, 0.06, 0]} castShadow><sphereGeometry args={[0.07, 14, 12]} /><meshStandardMaterial color="#2a2a30" roughness={0.4} metalness={0.5} /></mesh><mesh position={[0.08, 0.07, 0]} rotation={[0, 0, -0.9]}><cylinderGeometry args={[0.012, 0.02, 0.07, 6]} /><meshStandardMaterial color="#2a2a30" /></mesh></>
         : <mesh position={[0, 0.025, 0]} castShadow><cylinderGeometry args={[0.04, 0.03, 0.05, 14]} /><meshStandardMaterial color="#e8e0d0" roughness={0.4} /></mesh>)}
       {f === 'nordic' && (i % 2 === 0
-        ? <><mesh position={[0, 0.06, 0]} castShadow><cylinderGeometry args={[0.04, 0.05, 0.12, 12]} /><meshStandardMaterial color="#f2efe8" roughness={0.6} /></mesh>{[-0.03, 0, 0.035].map((dx, k) => <mesh key={k} position={[dx, 0.2 + k * 0.01, 0]} rotation={[0, 0, dx * 4]}><cylinderGeometry args={[0.004, 0.004, 0.16, 5]} /><meshStandardMaterial color="#6f5a3e" /></mesh>)}</>
+        ? <><mesh position={[0, 0.06, 0]} castShadow><cylinderGeometry args={[0.04, 0.05, 0.12, 12]} /><meshStandardMaterial color="#ece8dc" roughness={0.6} /></mesh>{[-0.03, 0, 0.035].map((dx, k) => <mesh key={k} position={[dx, 0.2 + k * 0.01, 0]} rotation={[0, 0, dx * 4]}><cylinderGeometry args={[0.004, 0.004, 0.16, 5]} /><meshStandardMaterial color="#8a7a58" /></mesh>)}</>
         : <mesh position={[0, 0.03, 0]} castShadow><cylinderGeometry args={[0.045, 0.035, 0.06, 16]} /><meshStandardMaterial color="#f7f4ee" roughness={0.35} /></mesh>)}
       {f === 'neon' && <mesh position={[0, 0.03, 0]}><cylinderGeometry args={[0.04, 0.032, 0.06, 14]} /><meshBasicMaterial color={GLOWS[i % 3]} toneMapped={false} /></mesh>}
     </group>
@@ -39,8 +39,8 @@ function RectTable({ t, f }) {
   const h = tableHeight(t, f);
   const L = t.length ?? t.size; const D = t.depth ?? t.size;
   const isBar = t.type === 'bar';
-  const wood = f === 'nordic' ? { color: '#e9d8bd', roughness: 0.55 } : f === 'zen' ? { color: '#6a4a2c', roughness: 0.5 } : { color: '#120d26', roughness: 0.12, metalness: 0.55 };
-  const leg = f === 'nordic' ? { color: '#d9c29c', roughness: 0.6 } : f === 'zen' ? { color: '#4a321c', roughness: 0.6 } : { color: '#070510', roughness: 0.3, metalness: 0.8 };
+  const wood = f === 'nordic' ? { color: '#e0cfae', roughness: 0.55 } : f === 'zen' ? { color: '#6a4a2c', roughness: 0.5 } : { color: '#120d26', roughness: 0.12, metalness: 0.55 };
+  const leg = f === 'nordic' ? { color: '#cdb68f', roughness: 0.6 } : f === 'zen' ? { color: '#4a321c', roughness: 0.6 } : { color: '#070510', roughness: 0.3, metalness: 0.8 };
   const th = f === 'zen' ? 0.05 : 0.045;
   const px = t.type === 'slab' ? [-L * 0.28, L * 0.28] : [0];
   return (
@@ -67,8 +67,8 @@ function RectTable({ t, f }) {
 
 function RoundTable({ t, f }) {
   const r = t.radius; const h = tableHeight(t, f);
-  const top = f === 'nordic' ? { color: '#efe0c6', roughness: 0.5 } : f === 'zen' ? { color: '#6a4a2c', roughness: 0.5 } : { color: '#120d26', roughness: 0.1, metalness: 0.6 };
-  const leg = f === 'nordic' ? { color: '#d9c29c', roughness: 0.6 } : f === 'zen' ? { color: '#4a321c', roughness: 0.6 } : { color: '#070510', roughness: 0.3, metalness: 0.8 };
+  const top = f === 'nordic' ? { color: '#e6d6b8', roughness: 0.5 } : f === 'zen' ? { color: '#6a4a2c', roughness: 0.5 } : { color: '#120d26', roughness: 0.1, metalness: 0.6 };
+  const leg = f === 'nordic' ? { color: '#cdb68f', roughness: 0.6 } : f === 'zen' ? { color: '#4a321c', roughness: 0.6 } : { color: '#070510', roughness: 0.3, metalness: 0.8 };
   const glow = GLOWS[Math.abs(Math.round(t.position[0] * 3 + t.position[2])) % 3];
   return (
     <group position={t.position}>
@@ -120,7 +120,7 @@ function Zabuton({ seat }) {
 function NordicChair({ seat, seatY }) {
   const fab = NORDIC_FABRICS[seat.seat_index % NORDIC_FABRICS.length];
   const style = seatStyle(seat);
-  const wood = { color: '#d9c29c', roughness: 0.6 };
+  const wood = { color: '#cdb68f', roughness: 0.6 }; // 淺橡木
   const legH = seatY - 0.05;
   if (style === 'stool') {
     return (

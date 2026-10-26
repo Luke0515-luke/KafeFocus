@@ -345,91 +345,135 @@ export function ZenDecor() {
   );
 }
 
-/* ====================== 北歐風 ====================== */
-function GlobeLamp({ position, light = false, r = 0.2 }) {
+/* ====================== 北歐風（暖白、淺橡木、燕麥 / 灰色、黑色金屬點綴、綠植） ====================== */
+const OAK = { color: '#cdb68f', roughness: 0.6 };
+const BLACK = { color: '#1d1d1f', roughness: 0.45, metalness: 0.5 };
+
+/** 穹頂吊燈（PH 風格）：霧面白或黑色燈罩 + 黑色吊線 + 暖光燈泡 */
+function DomePendant({ position, light = false, black = false, r = 0.26 }) {
   return (
     <group position={position}>
-      <mesh position={[0, 1.2, 0]}><cylinderGeometry args={[0.004, 0.004, 2.4, 5]} /><meshStandardMaterial color="#444" /></mesh>
-      <mesh><sphereGeometry args={[r, 20, 16]} /><meshStandardMaterial color="#fffaf0" emissive="#ffe6c0" emissiveIntensity={0.85} roughness={0.5} /></mesh>
-      {light && <pointLight color="#ffe4b8" intensity={11} distance={9} decay={2} />}
+      <mesh position={[0, 1.2, 0]}><cylinderGeometry args={[0.004, 0.004, 2.4, 5]} /><meshStandardMaterial {...BLACK} /></mesh>
+      <mesh position={[0, 0.02, 0]} castShadow>
+        <sphereGeometry args={[r, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color={black ? '#222224' : '#f6f4ee'} roughness={0.55} metalness={black ? 0.4 : 0} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, -0.05, 0]}><sphereGeometry args={[0.05, 12, 10]} /><meshBasicMaterial color="#ffe2b0" toneMapped={false} /></mesh>
+      {light && <pointLight position={[0, -0.2, 0]} color="#ffe2b0" intensity={12} distance={9} decay={2} />}
     </group>
   );
 }
 
-function StarLamp({ position }) {
-  return (
-    <group position={position}>
-      <mesh position={[0, 1.1, 0]}><cylinderGeometry args={[0.004, 0.004, 2.2, 5]} /><meshStandardMaterial color="#444" /></mesh>
-      <mesh scale={[1, 1, 0.4]}><octahedronGeometry args={[0.22, 0]} /><meshStandardMaterial color="#fff6e0" emissive="#ffd9a0" emissiveIntensity={0.9} /></mesh>
-      <mesh rotation={[0, 0, Math.PI / 4]} scale={[1, 1, 0.4]}><octahedronGeometry args={[0.22, 0]} /><meshStandardMaterial color="#fff6e0" emissive="#ffd9a0" emissiveIntensity={0.9} /></mesh>
-    </group>
-  );
-}
-
+/** 梯形層架：橡木、放白 / 灰 / 赤陶色陶器與書 */
 function LadderShelf({ position }) {
-  const wood = { color: '#d9c29c', roughness: 0.6 };
+  const pots = ['#f2f0ea', '#b9b4aa', '#b5764f', '#e3ded2'];
+  const books = ['#2b2b2d', '#8a8f6a', '#d8d2c4', '#9c9a94'];
   return (
     <group position={position}>
-      {[-0.55, 0.55].map((x) => <mesh key={x} position={[x, 1.5, 0]} rotation={[0, 0, x * 0.06]} castShadow><boxGeometry args={[0.06, 3.1, 0.06]} /><meshStandardMaterial {...wood} /></mesh>)}
+      {[-0.55, 0.55].map((x) => <mesh key={x} position={[x, 1.5, 0]} rotation={[0, 0, x * 0.06]} castShadow><boxGeometry args={[0.05, 3.1, 0.05]} /><meshStandardMaterial {...OAK} /></mesh>)}
       {[0.4, 1.1, 1.8, 2.5].map((y, i) => (
         <group key={y}>
-          <mesh position={[0, y, 0.1]} castShadow><boxGeometry args={[1.2 - i * 0.05, 0.05, 0.4]} /><meshStandardMaterial {...wood} /></mesh>
-          <mesh position={[-0.3, y + 0.12, 0.1]}><cylinderGeometry args={[0.07, 0.09, 0.2, 12]} /><meshStandardMaterial color={['#f2efe8', '#c8d3cb', '#e5cfc6', '#a9bccd'][i]} roughness={0.5} /></mesh>
-          <mesh position={[0.15, y + 0.1, 0.1]}><boxGeometry args={[0.3, 0.16, 0.2]} /><meshStandardMaterial color={['#c8d3cb', '#e5cfc6', '#a9bccd', '#dccbb4'][i]} roughness={0.8} /></mesh>
-          <mesh position={[0.4, y + 0.08, 0.1]}><sphereGeometry args={[0.08, 10, 8]} /><meshStandardMaterial color="#ece6da" roughness={0.6} /></mesh>
+          <mesh position={[0, y, 0.1]} castShadow><boxGeometry args={[1.2 - i * 0.05, 0.04, 0.36]} /><meshStandardMaterial {...OAK} /></mesh>
+          <mesh position={[-0.32, y + 0.12, 0.1]}><cylinderGeometry args={[0.06, 0.08, 0.2, 14]} /><meshStandardMaterial color={pots[i]} roughness={0.6} /></mesh>
+          {[0, 1, 2].map((k) => <mesh key={k} position={[0.05 + k * 0.07, y + 0.1, 0.1]}><boxGeometry args={[0.055, 0.17 - k * 0.015, 0.2]} /><meshStandardMaterial color={books[(i + k) % 4]} roughness={0.85} /></mesh>)}
+          <mesh position={[0.4, y + 0.07, 0.1]}><sphereGeometry args={[0.07, 12, 10]} /><meshStandardMaterial color={pots[(i + 2) % 4]} roughness={0.55} /></mesh>
         </group>
       ))}
     </group>
   );
 }
 
+/** 黑框極簡畫（白底、黑線、一抹赤陶色） */
 function Poster({ position, variant = 0 }) {
   const map = useCanvasTexture((g, W, H) => {
-    g.fillStyle = '#f7f4ee'; g.fillRect(0, 0, W, H);
-    const c = [['#c8d3cb', '#e5cfc6', '#a9bccd'], ['#dccbb4', '#9db4c0', '#c8d3cb'], ['#e5cfc6', '#a9bccd', '#dccbb4']][variant % 3];
-    g.fillStyle = c[0]; g.beginPath(); g.arc(W * 0.35, H * 0.4, W * 0.22, 0, Math.PI * 2); g.fill();
-    g.fillStyle = c[1]; g.beginPath(); g.moveTo(W * 0.3, H * 0.9); g.lineTo(W * 0.62, H * 0.45); g.lineTo(W * 0.92, H * 0.9); g.fill();
-    g.fillStyle = c[2]; g.fillRect(W * 0.1, H * 0.8, W * 0.8, H * 0.04);
+    g.fillStyle = '#f8f6f1'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#b5764f'; g.strokeStyle = '#1d1d1f'; g.lineWidth = 5; g.lineCap = 'round';
+    if (variant === 0) { g.beginPath(); g.arc(W / 2, H * 0.42, W * 0.22, 0, Math.PI * 2); g.fill(); g.beginPath(); g.moveTo(W * 0.15, H * 0.78); g.quadraticCurveTo(W * 0.5, H * 0.62, W * 0.85, H * 0.78); g.stroke(); }
+    else if (variant === 1) { g.beginPath(); g.moveTo(W * 0.2, H * 0.8); g.lineTo(W * 0.5, H * 0.25); g.lineTo(W * 0.8, H * 0.8); g.closePath(); g.stroke(); g.beginPath(); g.arc(W * 0.66, H * 0.3, W * 0.08, 0, Math.PI * 2); g.fill(); }
+    else { for (let i = 0; i < 5; i += 1) { g.beginPath(); g.moveTo(W * (0.22 + i * 0.14), H * 0.8); g.quadraticCurveTo(W * (0.15 + i * 0.14), H * 0.5, W * (0.28 + i * 0.12), H * 0.2); g.stroke(); } g.beginPath(); g.arc(W * 0.5, H * 0.86, W * 0.05, 0, Math.PI * 2); g.fill(); }
   }, 240, 300);
   return (
     <group position={position}>
-      <mesh><boxGeometry args={[0.85, 1.05, 0.04]} /><meshStandardMaterial color="#d9c29c" roughness={0.6} /></mesh>
-      <mesh position={[0, 0, 0.025]}><planeGeometry args={[0.73, 0.93]} /><meshStandardMaterial map={map} roughness={0.9} /></mesh>
+      <mesh><boxGeometry args={[0.8, 1.0, 0.035]} /><meshStandardMaterial {...BLACK} /></mesh>
+      <mesh position={[0, 0, 0.02]}><planeGeometry args={[0.7, 0.9]} /><meshStandardMaterial color="#f8f6f1" roughness={0.9} /></mesh>
+      <mesh position={[0, 0, 0.025]}><planeGeometry args={[0.56, 0.72]} /><meshStandardMaterial map={map} roughness={0.9} /></mesh>
     </group>
   );
 }
 
+/** 黑色鑄鐵小壁爐：玻璃門、石板底、樺木柴堆 */
 function WoodStove({ position }) {
   return (
     <group position={position}>
-      <mesh position={[0, 0.5, 0]} castShadow><boxGeometry args={[0.7, 0.8, 0.6]} /><meshStandardMaterial color="#26272b" roughness={0.5} metalness={0.5} /></mesh>
-      <mesh position={[0, 0.45, 0.305]}><planeGeometry args={[0.4, 0.34]} /><meshBasicMaterial color="#ff9a3c" toneMapped={false} /></mesh>
-      <mesh position={[0, 0.07, 0]}><boxGeometry args={[0.8, 0.14, 0.7]} /><meshStandardMaterial color="#d8d4cc" roughness={0.9} /></mesh>
-      <mesh position={[0, 2.6, -0.1]} castShadow><cylinderGeometry args={[0.07, 0.07, 3.4, 12]} /><meshStandardMaterial color="#26272b" roughness={0.5} metalness={0.5} /></mesh>
-      <pointLight position={[0, 0.5, 0.6]} color="#ff9a3c" intensity={4} distance={5} decay={2} />
-      {[0, 1, 2].map((i) => [0, 1, 2].slice(0, 3 - i).map((j) => <mesh key={`${i}${j}`} position={[0.65 + j * 0.17 + i * 0.085, 0.09 + i * 0.16, 0.05]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.075, 0.075, 0.5, 10]} /><meshStandardMaterial color="#c9a878" roughness={0.9} /></mesh>))}
+      <mesh position={[0, 0.04, 0.05]}><boxGeometry args={[0.95, 0.08, 0.85]} /><meshStandardMaterial color="#a6a39b" roughness={0.9} /></mesh>
+      <mesh position={[0, 0.52, 0]} castShadow><boxGeometry args={[0.62, 0.8, 0.5]} /><meshStandardMaterial {...BLACK} /></mesh>
+      <mesh position={[0, 0.46, 0.256]}><planeGeometry args={[0.38, 0.36]} /><meshBasicMaterial color="#e8792e" toneMapped={false} /></mesh>
+      <mesh position={[0, 0.46, 0.262]}><planeGeometry args={[0.44, 0.42]} /><meshStandardMaterial color="#111" transparent opacity={0.18} /></mesh>
+      <mesh position={[0, 0.94, 0]}><boxGeometry args={[0.68, 0.04, 0.56]} /><meshStandardMaterial {...BLACK} /></mesh>
+      <mesh position={[0, 2.6, -0.1]} castShadow><cylinderGeometry args={[0.06, 0.06, 3.3, 14]} /><meshStandardMaterial {...BLACK} /></mesh>
+      <pointLight position={[0, 0.5, 0.6]} color="#ff9a4c" intensity={3.5} distance={5} decay={2} />
+      {[0, 1, 2].map((i) => [0, 1, 2].slice(0, 3 - i).map((j) => (
+        <group key={`${i}${j}`} position={[0.72 + j * 0.16 + i * 0.08, 0.08 + i * 0.15, 0.05]} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh><cylinderGeometry args={[0.07, 0.07, 0.45, 10]} /><meshStandardMaterial color="#d8cdb4" roughness={0.9} /></mesh>
+          <mesh position={[0, 0.226, 0]}><circleGeometry args={[0.068, 10]} /><meshStandardMaterial color="#b89a6d" /></mesh>
+        </group>
+      )))}
     </group>
   );
 }
 
-function NordicPlant({ position, scale = 1 }) {
+/** 室內植物：龜背芋 / 琴葉榕風格，灰色陶盆或赤陶盆，葉色偏深綠 */
+function NordicPlant({ position, scale = 1, terracotta = false }) {
+  const leaves = [[0, 1.3, 0, 0.3], [0.22, 1.05, 0.1, 0.24], [-0.2, 1.1, -0.1, 0.26], [0.05, 0.88, -0.22, 0.2], [-0.12, 1.45, 0.14, 0.2], [0.18, 1.38, -0.12, 0.18]];
   return (
     <group position={position} scale={scale}>
-      <mesh position={[0, 0.2, 0]} castShadow><cylinderGeometry args={[0.2, 0.15, 0.4, 18]} /><meshStandardMaterial color="#f2efe8" roughness={0.5} /></mesh>
-      <mesh position={[0, 0.7, 0]}><cylinderGeometry args={[0.02, 0.03, 0.8, 6]} /><meshStandardMaterial color="#8a6a4b" /></mesh>
-      {[[0, 1.25, 0, 0.3], [0.2, 1.0, 0.1, 0.24], [-0.2, 1.05, -0.1, 0.26], [0.05, 0.85, -0.2, 0.2], [-0.12, 1.4, 0.15, 0.2]].map(([x, y, z, r], i) => (
-        <mesh key={i} position={[x, y, z]} scale={[1, 0.7, 1]} castShadow><sphereGeometry args={[r, 12, 10]} /><meshStandardMaterial color={i % 2 ? '#6f9a73' : '#7fae83'} roughness={0.85} /></mesh>
+      <mesh position={[0, 0.2, 0]} castShadow><cylinderGeometry args={[0.2, 0.15, 0.4, 20]} /><meshStandardMaterial color={terracotta ? '#b5764f' : '#bdb8ae'} roughness={0.7} /></mesh>
+      <mesh position={[0, 0.41, 0]}><cylinderGeometry args={[0.19, 0.19, 0.02, 20]} /><meshStandardMaterial color="#3a2f26" roughness={1} /></mesh>
+      <mesh position={[0, 0.8, 0]}><cylinderGeometry args={[0.018, 0.028, 0.9, 6]} /><meshStandardMaterial color="#6e5a44" /></mesh>
+      {leaves.map(([x, y, z, r], i) => (
+        <mesh key={i} position={[x, y, z]} rotation={[0.3 * (i % 3 - 1), i, 0.4 * (i % 2 ? 1 : -1)]} scale={[1, 0.28, 1.15]} castShadow>
+          <sphereGeometry args={[r, 14, 10]} /><meshStandardMaterial color={['#3f6b46', '#4d7d52', '#385f3e'][i % 3]} roughness={0.7} />
+        </mesh>
       ))}
     </group>
   );
 }
 
+/** 編織籃 + 折好的羊毛毯（燕麥 / 灰 / 駝色） */
 function BlanketBasket({ position }) {
   return (
     <group position={position}>
-      <mesh position={[0, 0.25, 0]} castShadow><cylinderGeometry args={[0.32, 0.26, 0.5, 20, 1, true]} /><meshStandardMaterial color="#c9a878" roughness={0.95} side={THREE.DoubleSide} /></mesh>
-      <mesh position={[0, 0.03, 0]}><cylinderGeometry args={[0.26, 0.26, 0.04, 20]} /><meshStandardMaterial color="#c9a878" /></mesh>
-      {[['#c8d3cb', 0.4], ['#e5cfc6', 0.5], ['#a9bccd', 0.6]].map(([c, y], i) => <mesh key={c} position={[(i - 1) * 0.04, y, 0]} rotation={[0, i, 0]}><boxGeometry args={[0.46, 0.12, 0.36]} /><meshStandardMaterial color={c} roughness={1} /></mesh>)}
+      <mesh position={[0, 0.25, 0]} castShadow><cylinderGeometry args={[0.32, 0.26, 0.5, 22, 1, true]} /><meshStandardMaterial color="#b89a6d" roughness={0.95} side={THREE.DoubleSide} /></mesh>
+      {[0.1, 0.22, 0.34, 0.46].map((y) => <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.29 + (y - 0.1) * 0.05, 0.008, 5, 28]} /><meshStandardMaterial color="#9c8157" roughness={1} /></mesh>)}
+      <mesh position={[0, 0.03, 0]}><cylinderGeometry args={[0.26, 0.26, 0.04, 22]} /><meshStandardMaterial color="#9c8157" /></mesh>
+      {[['#d8d2c4', 0.42], ['#9c9a94', 0.52], ['#c7b79c', 0.62]].map(([c, y], i) => <mesh key={c} position={[(i - 1) * 0.03, y, 0]} rotation={[0, i * 0.7, 0]}><boxGeometry args={[0.46, 0.1, 0.36]} /><meshStandardMaterial color={c} roughness={1} /></mesh>)}
+    </group>
+  );
+}
+
+/** 落地花瓶 + 乾燥蒲葦（北歐風常見） */
+function PampasVase({ position }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.3, 0]} castShadow><cylinderGeometry args={[0.1, 0.16, 0.6, 18]} /><meshStandardMaterial color="#e8e3d6" roughness={0.6} /></mesh>
+      {[[-0.1, 0.8, 0.2], [0.08, 0.95, -0.15], [0.0, 1.1, 0.05], [0.15, 0.85, 0.25], [-0.16, 1.0, -0.2]].map(([x, h, r], i) => (
+        <group key={i} position={[x * 0.5, 0.6, 0]} rotation={[0, 0, r]}>
+          <mesh position={[0, h * 0.5, 0]}><cylinderGeometry args={[0.004, 0.006, h, 5]} /><meshStandardMaterial color="#b9a47c" /></mesh>
+          <mesh position={[0, h, 0]} scale={[0.5, 1.6, 0.5]}><sphereGeometry args={[0.09, 8, 8]} /><meshStandardMaterial color="#e3d5b8" roughness={1} /></mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** 簡約黑框掛鐘 */
+function ClockBlack({ position }) {
+  return (
+    <group position={position}>
+      <mesh rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.28, 0.28, 0.04, 36]} /><meshStandardMaterial {...BLACK} /></mesh>
+      <mesh position={[0, 0, 0.022]}><circleGeometry args={[0.25, 36]} /><meshStandardMaterial color="#f8f6f1" roughness={0.9} /></mesh>
+      <mesh position={[0, 0.07, 0.03]}><boxGeometry args={[0.012, 0.15, 0.005]} /><meshStandardMaterial color="#1d1d1f" /></mesh>
+      <mesh position={[0.05, 0, 0.03]}><boxGeometry args={[0.1, 0.012, 0.005]} /><meshStandardMaterial color="#1d1d1f" /></mesh>
     </group>
   );
 }
@@ -438,25 +482,27 @@ export function NordicDecor() {
   return (
     <group>
       <Poster position={[-4.7, 3.0, -4.86]} variant={0} />
-      <Poster position={[3.5, 3.3, -4.86]} variant={1} />
+      <Poster position={[-5.7, 3.0, -4.86]} variant={1} />
+      <ClockBlack position={[3.5, 3.4, -4.84]} />
       <Poster position={[7.6, 3.0, -4.86]} variant={2} />
       <Poster position={[-8.86, 3.0, 2.6]} variant={1} />
-      <LadderShelf position={[-6.9, 0, -4.7]} />
+      <LadderShelf position={[-7.4, 0, -4.7]} />
       <WoodStove position={[8.1, 0, -4.1]} />
       <BlanketBasket position={[-8.2, 0, 0.2]} />
+      <PampasVase position={[-8.2, 0, 3.4]} />
       <NordicPlant position={[-8.3, 0, -4.2]} scale={1.2} />
-      <NordicPlant position={[8.3, 0, 6.0]} />
+      <NordicPlant position={[8.3, 0, 6.0]} terracotta />
       <NordicPlant position={[-1.2, 0, 8.3]} scale={0.9} />
-      <NordicPlant position={[4.0, 0, 8.4]} scale={1.1} />
-      <mesh position={[6.4, 0.02, -2.7]} scale={[1, 0.04, 0.7]} rotation={[0, 0.3, 0]}><sphereGeometry args={[0.8, 16, 12]} /><meshStandardMaterial color="#f4f0e6" roughness={1} /></mesh>
-      <GlobeLamp position={[1.0, 3.2, 1.0]} light r={0.26} />
-      <GlobeLamp position={[5.5, 3.2, 4.0]} light />
-      <GlobeLamp position={[0.8, 3.2, 5.2]} light />
-      <GlobeLamp position={[-3.0, 3.2, 2.5]} light />
-      <GlobeLamp position={[3.5, 3.2, -3.3]} />
-      <GlobeLamp position={[-7.0, 3.2, -2.0]} />
-      <StarLamp position={[7.4, 3.3, 1.5]} />
-      <StarLamp position={[-5.4, 3.3, 5.0]} />
+      <NordicPlant position={[4.0, 0, 8.4]} scale={1.1} terracotta />
+      <mesh position={[6.3, 0.015, -2.6]} scale={[1, 0.03, 0.7]} rotation={[0, 0.3, 0]}><sphereGeometry args={[0.8, 18, 12]} /><meshStandardMaterial color="#efeadd" roughness={1} /></mesh>
+      <DomePendant position={[1.0, 3.2, 1.0]} light r={0.34} />
+      <DomePendant position={[5.5, 3.2, 4.0]} light />
+      <DomePendant position={[0.8, 3.2, 5.2]} light black />
+      <DomePendant position={[-3.0, 3.2, 2.5]} light />
+      <DomePendant position={[3.5, 3.2, -3.3]} black />
+      <DomePendant position={[7.4, 3.2, 1.5]} black />
+      <DomePendant position={[-7.0, 3.2, -2.0]} />
+      <DomePendant position={[-5.4, 3.2, 5.0]} />
     </group>
   );
 }
