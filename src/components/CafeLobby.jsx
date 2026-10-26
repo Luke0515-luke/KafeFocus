@@ -8,7 +8,7 @@ import { Search, Shuffle } from 'lucide-react';
 const ICONS = { Coffee, Music, Sun, Leaf, Store, Zap, Flower2, Snowflake };
 
 /** 首頁：列出所有咖啡廳，顯示即時人數，點選進入。 */
-export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOpenCalendar, onOpenPlanner, onOpenBoard, onOpenForum }) {
+export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOpenCalendar, onOpenPlanner, onOpenBoard, onOpenForum, onOpenCredits }) {
   const userId = session?.user?.id ?? null; // 訪客 = null：可以逛，但不載入個人資料
   const [cafes, setCafes] = useState(null);
   const [counts, setCounts] = useState({});
@@ -200,6 +200,9 @@ export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOp
             );
           })}
         </div>
+        <footer className="mt-8 text-center text-xs text-stone-600">
+          <button type="button" onClick={onOpenCredits} className="hover:text-stone-400 hover:underline">版權與授權</button>
+        </footer>
       </div>
     </div>
   );

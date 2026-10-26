@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Heart, MessageCircle, MessagesSquare, PenSquare, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Flag, Heart, MessageCircle, MessagesSquare, PenSquare, RefreshCw, Trash2, X } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { openProfile } from '../lib/openProfile';
 
@@ -12,6 +12,20 @@ const field = 'w-full rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 
 const chip = (on) => `shrink-0 rounded-full px-2.5 py-1 text-xs transition ${on ? 'bg-amber-600 text-white' : 'bg-stone-800 text-stone-400 hover:bg-stone-700'}`;
 const dbMsg = (m = '') => (/forum_|schema cache|does not exist/i.test(m) ? '資料庫還沒有論壇功能：請到 Supabase → SQL Editor 執行 forum_guest.sql 一次。' : m);
 const when = (iso) => { const d = new Date(iso); return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const REASONS = '請選擇檢舉原因：輸入 1 = 侵害版權（抄襲 / 未經授權轉貼）、2 = 騷擾或不當內容、3 = 廣告或垃圾訊息、4 = 其他';
+const REASON_MAP = { 1: '侵害版權', 2: '騷擾或不當內容', 3: '廣告或垃圾訊息', 4: '其他' };
+/** 檢舉文章或留言（需登入）；檢舉會存進 forum_reports，站長到 Supabase 後台處理 */
+async function report(userId, onRequireAuth, target) {
+  if (!userId) { onRequireAuth?.('檢舉要先登入／註冊。'); return null; }
+  const pick = window.prompt(REASONS);
+  const reason = REASON_MAP[Number(pick)];
+  if (!reason) return null;
+  const note = (window.prompt('補充說明（選填，例如原作者或原文網址）') ?? '').slice(0, 300);
+  const { error } = await supabase.from('forum_reports').insert({ ...target, reason, note: note || null });
+  if (error) return dbMsg(error.message);
+  window.alert('已收到檢舉，我們會盡快處理。');
+  return null;
+}
 const cnt = (x) => (Array.isArray(x) ? x[0]?.count ?? 0 : 0);
 
 /**
@@ -168,6 +182,7 @@ function NewPost({ onCancel, onCreated }) {
         </select>
         <input className={field} value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={30} placeholder="適用科目（選填，例：英文、微積分）" />
       </div>
+      <p className="text-[11px] text-stone-500">請只分享自己的心得或有授權的內容，不要整篇轉貼別人的文章、書籍或圖片；引用請註明出處。發布即表示你擁有這些內容的權利。</p>
       <textarea className={`${field} min-h-[11rem] resize-y`} value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000}
         placeholder={'分享你的讀書方法：怎麼做、為什麼有效、需要多久、有什麼小提醒…\n（至少 10 個字，最多 4000 字）'} />
       <div className="text-right text-[11px] text-stone-500">{body.length}/4000</div>
@@ -220,6 +235,9 @@ function PostDetail({ post, userId, liked, onLike, onDelete, onRequireAuth, onCo
         <p className="whitespace-pre-line break-words text-sm leading-relaxed text-stone-200">{post.body}</p>
         <div className="flex items-center gap-2">
           <button type="button" onClick={onLike} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm ${liked ? 'bg-rose-900/50 text-rose-300' : 'bg-stone-800 hover:bg-stone-700'}`}><Heart size={15} fill={liked ? 'currentColor' : 'none'} />{post.likes}</button>
+          {userId !== post.user_id && (
+            <button type="button" onClick={async () => { const m = await report(userId, onRequireAuth, { post_id: post.id }); if (m) setErr(m); }} className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-1.5 text-sm text-stone-400 hover:bg-stone-700"><Flag size={15} />檢舉</button>
+          )}
           {userId && userId === post.user_id && (
             <button type="button" onClick={onDelete} className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-1.5 text-sm text-rose-300 hover:bg-stone-700"><Trash2 size={15} />刪除</button>
           )}
@@ -234,7 +252,9 @@ function PostDetail({ post, userId, liked, onLike, onDelete, onRequireAuth, onCo
               <li key={c.id} className="rounded-lg bg-stone-800 p-2.5 text-sm">
                 <div className="flex items-center justify-between text-xs text-stone-500">
                   <span><button type="button" onClick={() => openProfile(c.user_id)} className="text-stone-300 hover:underline">{c.author_name}</button>・{when(c.created_at)}</span>
-                  {userId === c.user_id && <button type="button" onClick={() => delComment(c)} aria-label="刪除留言" className="hover:text-rose-300"><Trash2 size={13} /></button>}
+                  {userId === c.user_id
+                    ? <button type="button" onClick={() => delComment(c)} aria-label="刪除留言" className="hover:text-rose-300"><Trash2 size={13} /></button>
+                    : <button type="button" onClick={async () => { const m = await report(userId, onRequireAuth, { post_id: post.id, comment_id: c.id }); if (m) setErr(m); }} aria-label="檢舉留言" className="hover:text-amber-300"><Flag size={13} /></button>}
                 </div>
                 <p className="mt-1 whitespace-pre-line break-words text-stone-200">{c.body}</p>
               </li>
