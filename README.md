@@ -94,3 +94,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 - **等級曲線改成較平緩**：`level = floor((xp/50)^(2/3)) + 1`（SQL 的 `study_level()` 與前端 `levelFromXp()` 必須一致）。原本的曲線在 80 級需要約 31 萬 XP，改後約 3.3 萬 XP。**既有使用者的等級會因此重算（通常會變高）。**
 - **部署**：重新執行 `study_planner.sql`（會重建 `study_leaderboard`、`study_user_card` 兩個函式），再重新部署前端。
 
+
+## 10. 排行榜只顯示選擇的類型、座位即時同步
+- 排行榜每一列只顯示目前選的類型（今日 / 本週 / 累計 / 經驗值）。
+- **別人換位置要重進才看得到**：座位同步原本只靠資料庫的 Realtime 推送，推送沒生效時就只能靠重新進入來重抓。現在有三層保障：① `realtime_fix.sql` 確保 `cafe_seats` 開啟 Realtime；② 入座 / 換位 / 離座 / 切換狀態時，用 Broadcast 通知同一間咖啡廳的所有人立刻重抓；③ 每 6 秒定時校正一次。
