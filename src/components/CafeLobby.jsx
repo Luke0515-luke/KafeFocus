@@ -53,14 +53,22 @@ export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOp
   useEffect(() => {
     let alive = true;
     const load = async () => {
-      const { data } = await supabase.from('cafe_seats').select('cafe_id, occupant_id');
-      if (!alive || !data) return;
+      // 只算「真的還在」的人（最近有心跳），避免數到已斷線但座位還保留著的幽靈座位
+      const r = await supabase.rpc('cafe_seat_counts');
+      if (!alive) return;
       const m = {};
-      data.forEach((r) => {
-        const e = (m[r.cafe_id] ||= { total: 0, taken: 0 });
-        e.total += 1;
-        if (r.occupant_id) e.taken += 1;
-      });
+      if (!r.error && r.data) {
+        r.data.forEach((x) => { m[x.cafe_id] = { total: Number(x.total), taken: Number(x.taken) }; });
+      } else {
+        // 還沒執行 lobby_counts_fix.sql：退回舊算法（可能數到幽靈座位）
+        const { data } = await supabase.from('cafe_seats').select('cafe_id, occupant_id');
+        if (!alive || !data) return;
+        data.forEach((x) => {
+          const e = (m[x.cafe_id] ||= { total: 0, taken: 0 });
+          e.total += 1;
+          if (x.occupant_id) e.taken += 1;
+        });
+      }
       setCounts(m);
     };
     load();
