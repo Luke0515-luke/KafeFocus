@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabaseClient';
 
 const HEARTBEAT_MS = 25_000;
+const SYNC_MS = 6_000; // 定時重抓座位的間隔
 
 const ERROR_TEXT = {
   seat_taken: '這個座位剛被別人坐走了',
@@ -47,6 +48,7 @@ export function useCafeRealtime(cafeId, userId) {
   const [onlineIds, setOnlineIds] = useState(null);           // null = Presence 尚未同步
 
   const accessTokenRef = useRef(null);
+  const channelRef = useRef(null);
   const mySeatIdRef = useRef(null);
 
   const guestKeyRef = useRef(`guest-${Math.random().toString(36).slice(2, 10)}`); // 訪客（未登入）只看不坐
@@ -83,6 +85,7 @@ export function useCafeRealtime(cafeId, userId) {
     fetchSeats().finally(() => { if (!cancelled) setLoading(false); });
 
     const channel = supabase.channel(`cafe:${cafeId}`, { config: { presence: { key: userId ?? guestKeyRef.current } } });
+    channelRef.current = channel;
 
     channel
       .on(
@@ -90,6 +93,8 @@ export function useCafeRealtime(cafeId, userId) {
         { event: '*', schema: 'public', table: 'cafe_seats', filter: `cafe_id=eq.${cafeId}` },
         (payload) => { if (payload.new?.id) mergeSeat(payload.new); },
       )
+      // 備援：有人入座 / 換位 / 離座時直接廣播通知，大家立刻重抓（不依賴資料庫的 Realtime 設定）
+      .on('broadcast', { event: 'seats_changed' }, () => { fetchSeats(); })
       .on('presence', { event: 'sync' }, () => {
         setOnlineIds(new Set(Object.keys(channel.presenceState())));
       })
@@ -108,10 +113,23 @@ export function useCafeRealtime(cafeId, userId) {
 
     return () => {
       cancelled = true;
+      if (channelRef.current === channel) channelRef.current = null;
       supabase.removeChannel(channel);
       setOnlineIds(null);
     };
   }, [cafeId, userId, fetchSeats, mergeSeat]);
+
+  // ---- 定時校正：就算 Realtime 漏事件（網路抖動、資料庫沒開 Realtime）也能在幾秒內看到別人的變動 ----
+  useEffect(() => {
+    if (!cafeId) return undefined;
+    const id = setInterval(() => { if (document.visibilityState === 'visible') fetchSeats(); }, SYNC_MS);
+    return () => clearInterval(id);
+  }, [cafeId, fetchSeats]);
+
+  // 通知同一間咖啡廳的其他人：座位有變動
+  const notifySeats = useCallback(() => {
+    channelRef.current?.send({ type: 'broadcast', event: 'seats_changed', payload: {} }).catch?.(() => {});
+  }, []);
 
   // ---- 追蹤 access token（pagehide 時要同步取用） ----
   useEffect(() => {
@@ -180,14 +198,16 @@ export function useCafeRealtime(cafeId, userId) {
     // 換位時舊座位的清空事件也會由 Realtime 送達；這裡先套用自己的結果讓畫面立即反應
     setSeats((prev) => prev.map((s) => (s.occupant_id === userId && s.id !== seatId ? { ...s, ...emptyPatch } : s)));
     mergeSeat(data);
+    notifySeats();
     return data;
-  }, [mergeSeat, userId]);
+  }, [mergeSeat, userId, notifySeats]);
 
   const leaveSeat = useCallback(async () => {
     const { error: err } = await supabase.rpc('release_my_seat');
     if (err) throw toError(err);
     setSeats((prev) => prev.map((s) => (s.occupant_id === userId ? { ...s, ...emptyPatch } : s)));
-  }, [userId]);
+    notifySeats();
+  }, [userId, notifySeats]);
 
   const setStatus = useCallback(async ({ status, task, durationSec }) => {
     const { data, error: err } = await supabase.rpc('set_seat_state', {
@@ -195,16 +215,18 @@ export function useCafeRealtime(cafeId, userId) {
     });
     if (err) throw toError(err);
     mergeSeat(data);
+    notifySeats();
     return data;
-  }, [mergeSeat]);
+  }, [mergeSeat, notifySeats]);
 
   // 提前結束專注：伺服器依實際專注分鐘數記錄，並把座位改成休息
   const endFocusEarly = useCallback(async () => {
     const { data, error: err } = await supabase.rpc('end_focus_early');
     if (err) throw toError(err);
     if (data?.seat) mergeSeat(data.seat);
+    notifySeats();
     return data;
-  }, [mergeSeat]);
+  }, [mergeSeat, notifySeats]);
 
   // Presence 說已不在線的佔用者 → 畫面上視為空位（DB 由 cron 清理）
   const visibleSeats = useMemo(() => seats.map((s) => {
