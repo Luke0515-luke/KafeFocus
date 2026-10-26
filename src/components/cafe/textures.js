@@ -150,6 +150,7 @@ function drawSky(kind) {
       neon: ['#07061a', '#1a0f3a', '#3a1450'],
       sakura: ['#f4cfd8', '#f0b9c7', '#d9a0ae'],
       snow: ['#cfdbe8', '#e6edf4', '#f6f8fb'],
+      sunset: ['#5b5a9c', '#f09a78', '#ffd9a4'],
     }[kind];
     grad.addColorStop(0, stops[0]);
     grad.addColorStop(0.6, stops[1]);
@@ -179,6 +180,33 @@ function drawSky(kind) {
         const x = rnd() * W; const y = rnd() * H;
         g.beginPath(); g.moveTo(x, y); g.lineTo(x - 5, y + 16); g.stroke();
       }
+    } else if (kind === 'sunset') {
+      // 夕照海岸：地平線上的落日 + 金色海面反光 + 遠方帆船與海鷗
+      const hy = H * 0.64;
+      const sun = g.createRadialGradient(W * 0.62, hy, 4, W * 0.62, hy, H * 0.5);
+      sun.addColorStop(0, 'rgba(255,248,214,0.95)'); sun.addColorStop(0.25, 'rgba(255,196,120,0.55)'); sun.addColorStop(1, 'rgba(255,160,110,0)');
+      g.fillStyle = sun; g.fillRect(0, 0, W, hy);
+      g.fillStyle = '#fff6d8'; g.beginPath(); g.arc(W * 0.62, hy - 2, H * 0.07, Math.PI, 0); g.fill();
+      for (let i = 0; i < 4; i += 1) { // 晚霞
+        g.fillStyle = `rgba(255,${170 + Math.floor(rnd() * 40)},${140 + Math.floor(rnd() * 40)},0.35)`;
+        g.beginPath(); g.ellipse(rnd() * W, H * (0.12 + rnd() * 0.3), 50 + rnd() * 50, 6 + rnd() * 6, 0, 0, Math.PI * 2); g.fill();
+      }
+      const sea = g.createLinearGradient(0, hy, 0, H);
+      sea.addColorStop(0, '#f2a27a'); sea.addColorStop(0.35, '#b86f84'); sea.addColorStop(1, '#2f4f78');
+      g.fillStyle = sea; g.fillRect(0, hy, W, H - hy);
+      for (let i = 0; i < 38; i += 1) { // 海面反光
+        const y = hy + 4 + rnd() * (H - hy - 6); const half = 3 + (y - hy) * 0.35 * rnd();
+        g.fillStyle = `rgba(255,${220 + Math.floor(rnd() * 30)},${160 + Math.floor(rnd() * 40)},${0.35 + rnd() * 0.4})`;
+        g.fillRect(W * 0.62 - half + (rnd() - 0.5) * 18, y, half * 2, 1.6);
+      }
+      g.fillStyle = 'rgba(40,30,60,0.8)'; // 帆船
+      g.beginPath(); g.moveTo(W * 0.3, hy - 1); g.lineTo(W * 0.3 + 18, hy - 1); g.lineTo(W * 0.3 + 14, hy + 4); g.lineTo(W * 0.3 + 3, hy + 4); g.fill();
+      g.beginPath(); g.moveTo(W * 0.3 + 9, hy - 22); g.lineTo(W * 0.3 + 16, hy - 3); g.lineTo(W * 0.3 + 9, hy - 3); g.fill();
+      g.strokeStyle = 'rgba(60,40,70,0.75)'; g.lineWidth = 1.6; // 海鷗
+      [[0.2, 0.22], [0.27, 0.3], [0.8, 0.2]].forEach(([fx, fy]) => {
+        const x = W * fx; const y = H * fy;
+        g.beginPath(); g.moveTo(x - 7, y + 2); g.quadraticCurveTo(x - 3, y - 4, x, y); g.quadraticCurveTo(x + 3, y - 4, x + 7, y + 2); g.stroke();
+      });
     } else if (kind === 'snow') {
       g.fillStyle = '#6f8a86';
       for (let i = 0; i < 8; i += 1) {
