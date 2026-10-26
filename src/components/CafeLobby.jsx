@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Coffee, Leaf, ListChecks, LogOut, Music, Store, Sun, Trophy, Users, Zap, Flower2 } from 'lucide-react';
+import { CalendarDays, Coffee, Leaf, ListChecks, LogOut, Music, Store, Sun, Trophy, Users, Zap, Flower2, Snowflake } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { CAFE_ORDER, getMeta, getTheme } from '../config/themes';
 
-const ICONS = { Coffee, Music, Sun, Leaf, Store, Zap, Flower2 };
+const ICONS = { Coffee, Music, Sun, Leaf, Store, Zap, Flower2, Snowflake };
 
 /** 首頁：列出所有咖啡廳，顯示即時人數，點選進入。 */
 export default function CafeLobby({ session, onSelect, onSignOut, onOpenCalendar, onOpenPlanner, onOpenBoard }) {
