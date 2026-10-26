@@ -5,8 +5,10 @@ import { supabase } from '../lib/supabaseClient';
  * 專注階段「完整跑完」時，寫入一筆 focus_logs（行事曆會顯示每天專注分鐘數）。
  * 中途離座、換狀態或關網頁都不會記錄；(user_id, started_at) 唯一，多個分頁也不會重複。
  */
-export function useFocusLogger({ mySeat, userId, cafeId }) {
+export function useFocusLogger({ mySeat, userId, cafeId, onLogged }) {
   const loggedRef = useRef(null);
+  const cbRef = useRef(onLogged);
+  cbRef.current = onLogged;
   const status = mySeat?.status;
   const startedAt = mySeat?.phase_started_at;
   const endsAt = mySeat?.phase_ends_at;
@@ -25,6 +27,7 @@ export function useFocusLogger({ mySeat, userId, cafeId }) {
         user_id: userId, cafe_id: cafeId ?? null, task: task ?? null, minutes, started_at: startedAt,
       });
       if (error && error.code !== '23505') console.warn('[focus_logs] 寫入失敗：', error.message);
+      if (!error) cbRef.current?.({ minutes, task });
     }, Math.max(0, end - Date.now()) + 500);
 
     return () => clearTimeout(timer);
