@@ -40,7 +40,8 @@ export function useCafeRealtime(cafeId, userId) {
   const accessTokenRef = useRef(null);
   const mySeatIdRef = useRef(null);
 
-  const mySeat = useMemo(() => seats.find((s) => s.occupant_id === userId) ?? null, [seats, userId]);
+  const guestKeyRef = useRef(`guest-${Math.random().toString(36).slice(2, 10)}`); // 訪客（未登入）只看不坐
+  const mySeat = useMemo(() => (userId ? seats.find((s) => s.occupant_id === userId) ?? null : null), [seats, userId]);
   useEffect(() => { mySeatIdRef.current = mySeat?.id ?? null; }, [mySeat?.id]);
 
   // 合併單筆異動；用 updated_at 擋掉亂序到達的舊事件
@@ -66,13 +67,13 @@ export function useCafeRealtime(cafeId, userId) {
 
   // ---- 訂閱：座位異動 + Presence ----
   useEffect(() => {
-    if (!cafeId || !userId) return undefined;
+    if (!cafeId) return undefined;
     let cancelled = false;
 
     setLoading(true);
     fetchSeats().finally(() => { if (!cancelled) setLoading(false); });
 
-    const channel = supabase.channel(`cafe:${cafeId}`, { config: { presence: { key: userId } } });
+    const channel = supabase.channel(`cafe:${cafeId}`, { config: { presence: { key: userId ?? guestKeyRef.current } } });
 
     channel
       .on(
@@ -87,7 +88,7 @@ export function useCafeRealtime(cafeId, userId) {
         if (cancelled) return;
         if (status === 'SUBSCRIBED') {
           setConnection('online');
-          await channel.track({ user_id: userId, at: Date.now() });
+          if (userId) await channel.track({ user_id: userId, at: Date.now() }); // 訪客不佔在線人數
           fetchSeats(); // 斷線重連後補抓，避免漏掉離線期間的異動
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           setConnection('reconnecting'); // supabase-js 會自動重連

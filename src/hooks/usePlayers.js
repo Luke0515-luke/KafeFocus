@@ -134,7 +134,7 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
 
   // ---- 頻道：位置 + 聊天 ----
   useEffect(() => {
-    if (!cafeId || !userId) return undefined;
+    if (!cafeId) return undefined; // 訪客也能收看別人的位置與聊天，只是不會送出
     const ch = supabase.channel(`room:${cafeId}`, { config: { broadcast: { self: false } } });
     channelRef.current = ch;
     readyRef.current = false;
@@ -275,6 +275,7 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
   }, []);
 
   const sendChat = useCallback((raw) => {
+    if (!userId) return false;
     const text = cleanText(raw, MAX_TEXT);
     const now = Date.now();
     if (!text || now - lastChatAt.current < CHAT_GAP_MS) return false;
@@ -288,7 +289,7 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
   }, [userId]);
 
   // 所有人的外觀（含自己），給座位上與站著的角色用
-  const outfits = useMemo(() => ({ ...theirOutfits, [userId]: sanitizeOutfit(outfit) }), [theirOutfits, userId, outfit]);
+  const outfits = useMemo(() => (userId ? { ...theirOutfits, [userId]: sanitizeOutfit(outfit) } : theirOutfits), [theirOutfits, userId, outfit]);
 
-  return { meRef, destRef, showMe: !mySeat, others, messages, bubbles, outfits, walkTo, sitAt, sendChat };
+  return { meRef, destRef, showMe: !mySeat && !!userId, others, messages, bubbles, outfits, walkTo, sitAt, sendChat };
 }
