@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AuthGate from './components/AuthGate';
+import AuthPanel from './components/AuthPanel';
+import ForumPanel from './components/ForumPanel';
 import CafeLobby from './components/CafeLobby';
 import CalendarPanel from './components/CalendarPanel';
 import PlannerPanel from './components/PlannerPanel';
@@ -16,6 +18,7 @@ import { PLAYLIST } from './config/playlist';
 import { getMeta, getTheme } from './config/themes';
 import { supabase } from './lib/supabaseClient';
 import { loadOutfit, persistOutfit } from './lib/outfit';
+import { beanInfo } from './lib/openProfile';
 
 /* 簡單的 hash 路由：#/cafe/<slug> 是咖啡廳房間，其餘是大廳。瀏覽器上一頁可以回大廳。 */
 const parseHash = () => {
@@ -34,13 +37,14 @@ function useCafeRoute() {
   return [slug, go];
 }
 
-function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar, onOpenPlanner, onOpenBoard }) {
-  const userId = session.user.id;
+function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, onOpenCalendar, onOpenPlanner, onOpenBoard, onOpenForum }) {
+  const userId = session?.user?.id ?? null; // null = 訪客（只能看，不能入座 / 聊天）
+  const isGuest = !userId;
   const theme = getTheme(slug);
   const [cafe, setCafe] = useState(undefined); // undefined 讀取中 / null 找不到
   const [profile, setProfile] = useState(null);
   const [notice, setNotice] = useState('');
-  const [outfit, setOutfit] = useState(() => loadOutfit(session.user));
+  const [outfit, setOutfit] = useState(() => loadOutfit(session?.user ?? { id: 'guest' }));
   const handleOutfit = useCallback((next) => { setOutfit(next); persistOutfit(supabase, next); }, []);
 
   useEffect(() => {
@@ -48,7 +52,7 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar, onOpenPlan
     (async () => {
       const [c, p] = await Promise.all([
         supabase.from('cafes').select('*').eq('slug', slug).maybeSingle(),
-        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        userId ? supabase.from('profiles').select('*').eq('id', userId).maybeSingle() : Promise.resolve({ data: null, error: null }),
       ]);
       if (!alive) return;
       if (c.error) { setNotice(`讀取咖啡廳失敗：${c.error.message}`); setCafe(null); } else setCafe(c.data);
@@ -56,6 +60,9 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar, onOpenPlan
     })();
     return () => { alive = false; };
   }, [slug, userId]);
+
+  // 用戶名：個人檔案 → 註冊時填的顯示名稱 → Email 前綴（聊天室、名牌都用它，不再顯示「同學」）
+  const userName = profile?.display_name ?? session?.user?.user_metadata?.display_name ?? session?.user?.email?.split('@')[0] ?? null;
 
   const {
     seats, mySeat, loading, error, connection, onlineCount,
@@ -67,12 +74,13 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar, onOpenPlan
   const [toast, setToast] = useState('');
   const linkedRef = useRef(null);
   const loadPlan = useCallback(async () => {
+    if (!userId) { setPlanToday([]); return; }
     const today = new Date(); const pad = (n) => String(n).padStart(2, '0');
     const key = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
     const { data, error: e } = await supabase.from('study_sessions')
       .select('id, minutes, kind, start_time, study_items(title)').eq('plan_date', key).eq('done', false).order('start_time');
     if (!e) setPlanToday((data ?? []).map((s) => ({ id: s.id, minutes: s.minutes, kind: s.kind, title: s.study_items?.title ?? '' })));
-  }, []);
+  }, [userId]);
   useEffect(() => { loadPlan(); }, [loadPlan]);
   useEffect(() => { if (!toast) return undefined; const t = setTimeout(() => setToast(''), 6000); return () => clearTimeout(t); }, [toast]);
 
@@ -84,7 +92,7 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar, onOpenPlan
     const { data, error: e } = await supabase.rpc('complete_study_session', { p_session_id: id, p_today: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, p_done: true });
     if (e || !data || data.already) return;
     const bonus = (data.bonuses ?? []).map((b) => `${b.label} +${b.xp}`).join('、');
-    setToast(`✅ 計畫區塊完成　+${data.xp_gained} XP${bonus ? `　${bonus}` : ''}${data.level > data.prev_level ? `　🎉 升級 Lv.${data.level}` : ''}`);
+    setToast(`✅ 計畫區塊完成　+${data.xp_gained} XP${bonus ? `　${bonus}` : ''}${data.level > data.prev_level ? `　🎉 升級 Lv.${data.level} ${beanInfo(data.level).emoji}${beanInfo(data.level).name}` : ''}`);
     loadPlan();
   }, [loadPlan]);
 
@@ -98,14 +106,19 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar, onOpenPlan
 
   // 站著 / 走動 / 聊天
   const players = usePlayers({
-    cafeId: cafe?.id, userId, name: profile?.display_name, avatarUrl: profile?.avatar_url,
+    cafeId: cafe?.id, userId, name: userName, avatarUrl: profile?.avatar_url,
     theme, mySeat, onSit: handleSit, outfit,
   });
-  const handleSeatSelect = useCallback((seat) => { setNotice(''); players.sitAt(seat); }, [players]);
+  const handleSeatSelect = useCallback((seat) => {
+    setNotice('');
+    if (isGuest) { onRequireAuth('入座要先登入／註冊，註冊完就能選位子開始讀書。'); return; }
+    players.sitAt(seat);
+  }, [players, isGuest, onRequireAuth]);
   const handleFloorClick = useCallback((x, z) => {
+    if (isGuest) { setNotice('目前是訪客模式，可以看大家讀書；登入後才能在咖啡廳裡走動、入座。'); return; }
     if (mySeat) { setNotice('要先按「離座」站起來，才能在咖啡廳裡走動。'); return; }
     players.walkTo(x, z);
-  }, [mySeat, players]);
+  }, [mySeat, players, isGuest]);
 
   const handleSaveAvatar = useCallback(async (url) => {
     const { data, error: err } = await supabase
@@ -137,8 +150,8 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar, onOpenPlan
   return (
     <div className="relative h-[100dvh] w-screen overflow-hidden bg-stone-900">
       <CafeScene
-        seats={seats} currentUserId={userId} onSeatSelect={handleSeatSelect} theme={theme}
-        players={players} selfName={profile?.display_name} selfAvatarUrl={profile?.avatar_url} onFloorClick={handleFloorClick}
+        seats={seats} currentUserId={userId ?? 'guest'} onSeatSelect={handleSeatSelect} theme={theme}
+        players={players} selfName={userName} selfAvatarUrl={profile?.avatar_url} onFloorClick={handleFloorClick}
       />
       <ControlPanel
         cafeName={cafe?.name ?? getMeta(slug).name}
@@ -155,14 +168,20 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar, onOpenPlan
         onSaveAvatar={handleSaveAvatar}
         onBack={onBack}
         onSignOut={handleSignOut}
+        isGuest={isGuest}
+        onSignIn={() => onSignIn()}
         onOpenCalendar={onOpenCalendar}
         onOpenPlanner={onOpenPlanner}
         onOpenBoard={onOpenBoard}
+        onOpenForum={onOpenForum}
         planToday={planToday}
         onFocusPlan={(id) => { linkedRef.current = id; }}
       />
       {toast && <div className="pointer-events-none absolute left-1/2 top-4 z-40 -translate-x-1/2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-stone-950 shadow-xl">{toast}</div>}
-      <ChatPanel messages={players.messages} myId={userId} onSend={players.sendChat} />
+      <ChatPanel
+        title={userName ?? '訪客'} messages={players.messages} myId={userId} onSend={players.sendChat}
+        readOnly={isGuest} onRequireAuth={() => onRequireAuth('聊天要先登入／註冊，登入後就能和大家說話。')}
+      />
       {(cafe === undefined || loading) && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center text-amber-100">載入咖啡廳中…</div>
       )}
@@ -175,6 +194,8 @@ function Main({ session }) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [plannerOpen, setPlannerOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
+  const [forumOpen, setForumOpen] = useState(false);
+  const [authHint, setAuthHint] = useState(null); // null = 不顯示登入視窗；字串 = 顯示並附上原因
   const [profileId, setProfileId] = useState(null);
   useEffect(() => {
     const h = (e) => setProfileId(e.detail);
@@ -182,19 +203,33 @@ function Main({ session }) {
     return () => window.removeEventListener('kf-open-profile', h);
   }, []);
   const signOut = useCallback(async () => { await supabase.auth.signOut(); }, []);
-  const openCalendar = useCallback(() => setCalendarOpen(true), []);
+  const requireAuth = useCallback((hint = '') => setAuthHint(hint || '登入後就能使用完整功能。'), []);
+  useEffect(() => { if (session) setAuthHint(null); }, [session]); // 登入成功 → 自動關掉視窗
+  // 只有「新增行程 / 讀書計畫」才需要帳號：沒登入的人按下去才跳出註冊
+  const openCalendar = useCallback(() => {
+    if (!session) { requireAuth('新增行程需要先登入／註冊，註冊只要一分鐘。'); return; }
+    setCalendarOpen(true);
+  }, [session, requireAuth]);
+  const openPlanner = useCallback(() => {
+    if (!session) { requireAuth('排讀書計畫需要先登入／註冊，註冊只要一分鐘。'); return; }
+    setPlannerOpen(true);
+  }, [session, requireAuth]);
+  const openForum = useCallback(() => setForumOpen(true), []);
+  const signIn = useCallback((hint) => requireAuth(hint || '登入或註冊 KafeFocus。'), [requireAuth]);
 
   return (
     <>
       {slug ? (
-        <CafeRoom key={slug} slug={slug} session={session} onBack={() => go(null)} onSignOut={signOut} onOpenCalendar={openCalendar} onOpenPlanner={() => setPlannerOpen(true)} onOpenBoard={() => setBoardOpen(true)} />
+        <CafeRoom key={slug} slug={slug} session={session} onBack={() => go(null)} onSignOut={signOut} onSignIn={signIn} onRequireAuth={requireAuth} onOpenCalendar={openCalendar} onOpenPlanner={openPlanner} onOpenBoard={() => setBoardOpen(true)} onOpenForum={openForum} />
       ) : (
-        <CafeLobby session={session} onSelect={go} onSignOut={signOut} onOpenCalendar={openCalendar} onOpenPlanner={() => setPlannerOpen(true)} onOpenBoard={() => setBoardOpen(true)} />
+        <CafeLobby session={session} onSelect={go} onSignOut={signOut} onSignIn={signIn} onOpenCalendar={openCalendar} onOpenPlanner={openPlanner} onOpenBoard={() => setBoardOpen(true)} onOpenForum={openForum} />
       )}
-      {calendarOpen && <CalendarPanel userId={session.user.id} onClose={() => setCalendarOpen(false)} />}
-      {plannerOpen && <PlannerPanel userId={session.user.id} onClose={() => setPlannerOpen(false)} />}
-      {boardOpen && <LeaderboardPanel myId={session.user.id} onClose={() => setBoardOpen(false)} />}
-      {profileId && <UserCard userId={profileId} myId={session.user.id} onClose={() => setProfileId(null)} />}
+      {calendarOpen && session && <CalendarPanel userId={session.user.id} onClose={() => setCalendarOpen(false)} />}
+      {plannerOpen && session && <PlannerPanel userId={session.user.id} onClose={() => setPlannerOpen(false)} />}
+      {boardOpen && <LeaderboardPanel myId={session?.user?.id ?? null} onClose={() => setBoardOpen(false)} />}
+      {forumOpen && <ForumPanel userId={session?.user?.id ?? null} onClose={() => setForumOpen(false)} onRequireAuth={requireAuth} />}
+      {profileId && <UserCard userId={profileId} myId={session?.user?.id ?? null} onClose={() => setProfileId(null)} />}
+      {authHint !== null && <AuthPanel modal hint={authHint} onClose={() => setAuthHint(null)} />}
     </>
   );
 }
@@ -203,7 +238,7 @@ export default function App() {
   const music = useBackgroundMusic(PLAYLIST); // 放在最上層：大廳與房間之間切換時音樂不會中斷
   return (
     <>
-      <AuthGate>{(session) => <Main session={session} />}</AuthGate>
+      <AuthGate>{(session) => <Main session={session} />}</AuthGate> {/* session 為 null = 訪客，可瀏覽 */}
       <MusicPlayer music={music} />
     </>
   );
