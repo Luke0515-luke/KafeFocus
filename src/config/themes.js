@@ -81,7 +81,7 @@ export const THEMES = {
     floor: ['#15122a', '#1b1636', '#110e24', '#1e1840', '#161230'],
     backWall: { type: 'plaster', color: '#1d1840' },
     sideWall: { base: '#0b0818', slat: '#2a1f5c' },
-    sky: 'neon', trim: '#05030d',
+    sky: 'neon', trim: '#05030d', decor: 'neon',
     accent: '#22d3ee',                             // 青色霓虹牆裙
     rugs: [['#2a0f4a', '#3d1566', '#12082a'], ['#0e2a3d', '#14405a', '#081824']],
     palette: {
@@ -94,6 +94,30 @@ export const THEMES = {
     },
     features: { piano: false, records: true, hanging: 4, plants: 3 },
     preview: ['#1a0f3a', '#ff2e93'],
+  },
+  zen: {
+    id: 'zen',
+    bg: '#241b14', fog: [26, 48],
+    ambient: ['#ffe6c4', 0.62],
+    hemi: ['#ffeed2', '#3a2a1c', 0.55],
+    key: ['#ffd9a8', 0.8],
+    lamp: ['#ffb36b', 1.0],
+    floor: ['#b99a68', '#ad8f5f', '#c2a373', '#a88a5a', '#b49565'],
+    backWall: { type: 'plaster', color: '#d8c8a2' },
+    sideWall: { base: '#3a2616', slat: '#7a5a3a' },
+    sky: 'sakura', trim: '#2a1a0e', decor: 'zen',
+    accent: '#a32a2a',
+    rugs: [['#7a8a5a', '#8d9b6c', '#5f6e45'], ['#c9b98f', '#d6c8a2', '#b8a87c']],
+    palette: {
+      leathers: ['#2b3a55', '#34466a', '#222f46', '#3d5079'],
+      chairWood: { color: '#6b4a2b', roughness: 0.6 },
+      barBody: '#3a2a1c', barTop: '#8a6a45',
+      slab: '#8a6a45', square: '#7a5a3a', low: '#5a3f26',
+      counter: '#2a1d14', sofa: '#2b3a55', shade: '#e8d9b0',
+      orb: '#d94f4f', orbHover: '#ff8a8a',
+    },
+    features: { piano: false, records: false, hanging: 0, plants: 0 },
+    preview: ['#d8c8a2', '#a32a2a'],
   },
   forest: {
     id: 'forest',
@@ -131,6 +155,10 @@ export const CAFES = {
   'neon-rain': {
     theme: 'neon', icon: 'Zap', name: '雨夜霓虹',
     blurb: '窗外是下著雨的賽博城市，粉紫與青色霓虹映在深色桌面上，夜貓子專屬的專注角落。', tags: ['賽博', '霓虹', '夜晚'],
+  },
+  'zen-tea': {
+    theme: 'zen', icon: 'Flower2', name: '櫻語茶屋',
+    blurb: '拉門紙窗、紙燈籠與盆栽櫻花，一角立著朱紅鳥居，安靜的和風茶屋。', tags: ['和風', '安靜', '傍晚'],
   },
   'forest-reading': {
     theme: 'forest', icon: 'Leaf', name: '森林書屋',
