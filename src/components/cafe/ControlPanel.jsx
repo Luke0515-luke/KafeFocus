@@ -208,16 +208,12 @@ export default function ControlPanel({
 
       {!isGuest && (<>
       <div className="space-y-1.5 border-t border-stone-700 pt-3">
-        <label className="text-xs font-medium" htmlFor="avatar-url">我的頭像（Ready Player Me .glb）</label>
-        <div className="flex gap-2">
-          <input id="avatar-url" value={avatarInput} onChange={(e) => setAvatarInput(e.target.value)}
-            placeholder="https://models.readyplayer.me/…glb"
-            className="min-w-0 flex-1 rounded-lg border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
-          <button type="button" disabled={busy} onClick={saveAvatar} className="rounded-lg bg-stone-700 px-3 text-xs font-medium text-white hover:bg-stone-600 disabled:opacity-50">
-            套用
-          </button>
-        </div>
-        <p className="text-[11px] text-stone-500">沒有頭像時會顯示一個簡約的人形。</p>
+        <div className="text-xs font-medium">我的頭像</div>
+        <p className="text-[11px] text-stone-500">外部頭像服務（Ready Player Me）已停止營運，所以不再提供貼網址的功能；角色使用內建人形，下方可自訂外觀顏色。</p>
+        {profile?.avatar_url && (
+          <button type="button" disabled={busy} onClick={() => run(async () => { await onSaveAvatar(null); setMsg('已改用內建人形'); })}
+            className="rounded-lg bg-stone-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-stone-600 disabled:opacity-50">清除舊頭像、改用內建人形</button>
+        )}
       </div>
 
       <OutfitEditor userId={userId} outfit={outfit} onChange={onOutfitChange} />
