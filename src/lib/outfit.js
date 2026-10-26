@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 
 /** 角色外觀（膚色、上衣、褲子、頭髮）：顏色都是 #rrggbb。沒設定的欄位用預設值；shirt 為 null 時依使用者 id 挑一個預設衣服色。 */
 export const SWATCHES = {
@@ -59,7 +58,8 @@ export function persistOutfit(supabase, outfit) {
   }, 700);
 }
 
-const tint = (hex, strength) => new THREE.Color('#ffffff').lerp(new THREE.Color(hex), strength);
+/** 用材質自己的 Color 物件混色（白 → 目標色），這樣本檔不必 import three，大廳就不用下載 3D 引擎 */
+const tint = (color, hex, strength) => { const t = color.clone().set(hex); return color.set('#ffffff').lerp(t, strength); };
 
 /**
  * Ready Player Me 模型：依材質名稱換色（只有使用者自訂過才會呼叫）。
@@ -78,7 +78,7 @@ export function applyOutfitToRig(root, outfit) {
     else if (/wolf3d_(body|head|skin)/.test(name)) kind = 'skin';
     if (!kind) return;
     const m = o.material.clone();
-    if (kind === 'shirt' || kind === 'pants') { m.map = null; m.color.set(outfit[kind]); } else m.color.copy(tint(outfit[kind], kind === 'skin' ? 0.7 : 0.8));
+    if (kind === 'shirt' || kind === 'pants') { m.map = null; m.color.set(outfit[kind]); } else tint(m.color, outfit[kind], kind === 'skin' ? 0.7 : 0.8);
     m.needsUpdate = true;
     o.material = m;
   });
