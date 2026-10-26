@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import AuthGate from './components/AuthGate';
 import AuthPanel from './components/AuthPanel';
 import ForumPanel from './components/ForumPanel';
@@ -8,7 +8,7 @@ import PlannerPanel from './components/PlannerPanel';
 import { LeaderboardPanel, UserCard } from './components/SocialPanels';
 import ChatPanel from './components/ChatPanel';
 import MusicPlayer from './components/MusicPlayer';
-import CafeScene from './components/cafe/CafeScene';
+const CafeScene = lazy(() => import('./components/cafe/CafeScene')); // 3D 引擎很大：進咖啡廳才下載，大廳秒開
 import ControlPanel from './components/cafe/ControlPanel';
 import { useCafeRealtime } from './hooks/useCafeRealtime';
 import { useBackgroundMusic } from './hooks/useBackgroundMusic';
@@ -149,10 +149,12 @@ function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, o
 
   return (
     <div className="relative h-[100dvh] w-screen overflow-hidden bg-stone-900">
+      <Suspense fallback={<div className="absolute inset-0 grid place-items-center text-amber-100">準備咖啡廳場景…</div>}>
       <CafeScene
         seats={seats} currentUserId={userId ?? 'guest'} onSeatSelect={handleSeatSelect} theme={theme}
         players={players} selfName={userName} selfAvatarUrl={profile?.avatar_url} onFloorClick={handleFloorClick}
       />
+      </Suspense>
       <ControlPanel
         cafeName={cafe?.name ?? getMeta(slug).name}
         profile={profile}
@@ -202,6 +204,20 @@ function Main({ session }) {
     window.addEventListener('kf-open-profile', h);
     return () => window.removeEventListener('kf-open-profile', h);
   }, []);
+  // Esc 關閉最上層的視窗（電腦鍵盤用）
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (authHint !== null) setAuthHint(null);
+      else if (profileId) setProfileId(null);
+      else if (forumOpen) setForumOpen(false);
+      else if (boardOpen) setBoardOpen(false);
+      else if (plannerOpen) setPlannerOpen(false);
+      else if (calendarOpen) setCalendarOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [authHint, profileId, forumOpen, boardOpen, plannerOpen, calendarOpen]);
   const signOut = useCallback(async () => { await supabase.auth.signOut(); }, []);
   const requireAuth = useCallback((hint = '') => setAuthHint(hint || '登入後就能使用完整功能。'), []);
   useEffect(() => { if (session) setAuthHint(null); }, [session]); // 登入成功 → 自動關掉視窗
