@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html, RoundedBox } from '@react-three/drei';
-import { seatStyle } from './layout';
+import { seatStyle, seatHeight } from './layout';
+import { ThemeChair } from './ThemeFurniture';
 import { usePalette } from './palette';
 
 const METAL = { color: '#1b1b1d', roughness: 0.45, metalness: 0.7 };
@@ -166,6 +167,7 @@ function BoothSeat({ seatY, leather }) {
 
 function Chair({ seat }) {
   const P = usePalette();
+  if (P.furniture) return <ThemeChair f={P.furniture} seat={seat} seatY={seat.pos_y} />;
   const style = seatStyle(seat);
   const leather = P.leathers[seat.seat_index % P.leathers.length];
   const y = seat.pos_y;
@@ -183,7 +185,7 @@ export default function Seat3D({ seat, occupied, onSelect }) {
   const P = usePalette();
   const [hovered, setHovered] = useState(false);
   const marker = useRef();
-  const baseY = seat.pos_y + 0.8;
+  const baseY = seatHeight(seat, P.furniture) + 0.8;
 
   useFrame(({ clock }) => {
     if (marker.current) marker.current.position.y = baseY + Math.sin(clock.elapsedTime * 2 + seat.seat_index) * 0.05;

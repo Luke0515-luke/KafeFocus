@@ -27,9 +27,25 @@ function make(w, h, draw, repeat = [1, 1]) {
   return t;
 }
 
-function drawFloor(g, W, H, pal) {
+/** 榻榻米：每格 2 塊疊成磚紋，長邊有深色包邊（緣），表面有藺草紋 */
+function drawTatami(g, W, H) {
+  const rnd = rngFactory(23);
+  const rows = 5; const mh = H / rows; const mw = W / 2;
+  g.fillStyle = '#2b3a2a'; g.fillRect(0, 0, W, H);
+  for (let r = 0; r < rows; r += 1) {
+    const off = r % 2 ? mw / 2 : 0;
+    for (let x = -off; x < W; x += mw) {
+      g.fillStyle = shade('#c3bd86', (rnd() - 0.5) * 16);
+      g.fillRect(x + 1.5, r * mh + 5, mw - 3, mh - 10);
+      g.strokeStyle = 'rgba(90,100,50,0.16)'; g.lineWidth = 1;
+      for (let y = r * mh + 7; y < (r + 1) * mh - 6; y += 3) { g.beginPath(); g.moveTo(x + 2, y); g.lineTo(x + mw - 2, y); g.stroke(); }
+    }
+  }
+}
+
+function drawFloor(g, W, H, pal, light = false) {
   const rnd = rngFactory(11);
-  const rows = 32;
+  const rows = light ? 22 : 32;
   const ph = H / rows;
   for (let r = 0; r < rows; r += 1) {
     let x = -rnd() * 200;
@@ -46,8 +62,8 @@ function drawFloor(g, W, H, pal) {
         g.lineTo(x + w, y + (rnd() - 0.5) * 2);
         g.stroke();
       }
-      g.strokeStyle = 'rgba(10,5,2,0.7)';
-      g.lineWidth = 2;
+      g.strokeStyle = light ? 'rgba(120,95,60,0.35)' : 'rgba(10,5,2,0.7)';
+      g.lineWidth = light ? 1.5 : 2;
       g.strokeRect(x, r * ph, w, ph);
       x += w;
     }
@@ -133,6 +149,7 @@ function drawSky(kind) {
       forest: ['#6fa070', '#3f6b45', '#233d2a'],
       neon: ['#07061a', '#1a0f3a', '#3a1450'],
       sakura: ['#f4cfd8', '#f0b9c7', '#d9a0ae'],
+      snow: ['#cfdbe8', '#e6edf4', '#f6f8fb'],
     }[kind];
     grad.addColorStop(0, stops[0]);
     grad.addColorStop(0.6, stops[1]);
@@ -162,6 +179,15 @@ function drawSky(kind) {
         const x = rnd() * W; const y = rnd() * H;
         g.beginPath(); g.moveTo(x, y); g.lineTo(x - 5, y + 16); g.stroke();
       }
+    } else if (kind === 'snow') {
+      g.fillStyle = '#6f8a86';
+      for (let i = 0; i < 8; i += 1) {
+        const x = (i / 8) * W + rnd() * 20; const th = 50 + rnd() * 60;
+        g.beginPath(); g.moveTo(x, H); g.lineTo(x + 18, H - th); g.lineTo(x + 36, H); g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.moveTo(x + 18, H - th); g.lineTo(x + 26, H - th * 0.7); g.lineTo(x + 10, H - th * 0.7); g.fill();
+        g.fillStyle = '#6f8a86';
+      }
+      for (let i = 0; i < 70; i += 1) { g.fillStyle = `rgba(255,255,255,${0.5 + rnd() * 0.5})`; g.beginPath(); g.arc(rnd() * W, rnd() * H, 1 + rnd() * 2.2, 0, Math.PI * 2); g.fill(); }
     } else if (kind === 'sakura') {
       for (let i = 0; i < 60; i += 1) {
         g.fillStyle = `rgba(255,${200 + Math.floor(rnd() * 40)},${215 + Math.floor(rnd() * 30)},${0.5 + rnd() * 0.5})`;
@@ -237,7 +263,9 @@ function drawArt(variant) {
 
 export function useCafeTextures(theme) {
   const tex = useMemo(() => ({
-    floor: make(512, 512, (g, W, H) => drawFloor(g, W, H, theme.floor), [4, 3]),
+    floor: theme.floorType === 'tatami'
+      ? make(512, 512, drawTatami, [4, 3])
+      : make(512, 512, (g, W, H) => drawFloor(g, W, H, theme.floor, theme.floorType === 'birch'), [4, 3]),
     back: theme.backWall.type === 'brick'
       ? make(512, 256, (g, W, H) => drawBrick(g, W, H, theme.backWall), [10.2, 4.3])
       : make(256, 256, (g, W, H) => drawPlaster(g, W, H, theme.backWall), [4, 2]),

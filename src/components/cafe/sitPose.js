@@ -32,7 +32,7 @@ function aimBone(bone, child, targetDir) {
  * 對「已 clone 且尚未加入場景」的 Ready Player Me 骨架套上坐姿（直接改骨骼，不需要動畫檔）。
  * 回傳站姿時 Hips / Head 的高度（供定位與標籤使用）與頭部點頭用的資料；找不到 Hips 回傳 null。
  */
-export function applySittingPose(root) {
+export function applySittingPose(root, kneel = false) {
   const bone = (name) => root.getObjectByName(name);
   const hips = bone('Hips');
   if (!hips) return null;
@@ -45,8 +45,15 @@ export function applySittingPose(root) {
   // 順序很重要：先父骨再子骨
   for (const side of ['Left', 'Right']) {
     const sx = side === 'Left' ? 1 : -1; // 角色面向 +Z 時，Left 在 +X
-    aimBone(bone(`${side}UpLeg`),  bone(`${side}Leg`),     new THREE.Vector3(sx * 0.08, 0, 1));      // 大腿水平向前
-    aimBone(bone(`${side}Leg`),    bone(`${side}Foot`),    new THREE.Vector3(0, -1, 0.05));          // 小腿垂直向下
+    if (kneel) {
+      // 跪坐：大腿向前、小腿反折貼地收在大腿下方，腳尖朝後
+      aimBone(bone(`${side}UpLeg`), bone(`${side}Leg`),  new THREE.Vector3(sx * 0.1, -0.12, 1));
+      aimBone(bone(`${side}Leg`),   bone(`${side}Foot`), new THREE.Vector3(-sx * 0.04, -0.06, -1));
+      aimBone(bone(`${side}Foot`),  bone(`${side}ToeBase`), new THREE.Vector3(0, -0.15, -1));
+    } else {
+      aimBone(bone(`${side}UpLeg`),  bone(`${side}Leg`),     new THREE.Vector3(sx * 0.08, 0, 1));      // 大腿水平向前
+      aimBone(bone(`${side}Leg`),    bone(`${side}Foot`),    new THREE.Vector3(0, -1, 0.05));          // 小腿垂直向下
+    }
     aimBone(bone(`${side}Arm`),    bone(`${side}ForeArm`), new THREE.Vector3(sx * 0.12, -1, 0.1));   // 上臂放下
     aimBone(bone(`${side}ForeArm`), bone(`${side}Hand`),   new THREE.Vector3(-sx * 0.1, -0.45, 1));  // 前臂伸向桌面
   }

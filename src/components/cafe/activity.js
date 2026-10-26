@@ -18,6 +18,7 @@ export const DESK = {
   bentwood:   { y: 0.30, z: 0.69 },
   booth:      { y: 0.30, z: 0.69 },
   armchair:   { y: 0.17, z: 0.22 },
+  kneel:      { y: 0.25, z: 0.66 },   // 跪坐：矮茶几高 0.34、座墊高 0.09
 };
 export const deskFor = (style) => DESK[style] ?? DESK.chair;
 

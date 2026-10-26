@@ -12,7 +12,8 @@ import { reachArm, setSwing, solveElbow } from './rigUtils';
 import { createSeatedState, stepActivity, SIT } from './seatedMotion';
 import SeatProps from './SeatProps';
 import SpeechBubble from './Bubble';
-import { seatStyle } from './layout';
+import { effectiveStyle, seatHeight } from './layout';
+import { usePalette } from './palette';
 import { applyOutfitToRig, outfitKey, resolveOutfit } from '../../lib/outfit';
 import { AvatarErrorBoundary } from './AvatarErrorBoundary';
 import { useCountdown, formatMMSS } from '../../hooks/useCountdown';
@@ -83,8 +84,10 @@ function placeSegment(mesh, p, q, baseLen) {
 }
 
 function PlaceholderAvatar({ seat, isSelf, dim = false, bubble, st, style, outfit }) {
+  const kneel = style === 'kneel';
   const o = useMemo(() => resolveOutfit(outfit, seat.occupant_id ?? ''), [outfitKey(outfit), seat.occupant_id]); // eslint-disable-line react-hooks/exhaustive-deps
   const legLen = Math.max(0.3, seat.pos_y - 0.06);
+  const seatBaseY = kneel ? 0.09 : seat.pos_y;
   const mat = { transparent: dim, opacity: dim ? 0.5 : 1, roughness: 0.85 };
   const body = useRef();
   const armRefs = useRef({});
@@ -136,7 +139,19 @@ function PlaceholderAvatar({ seat, isSelf, dim = false, bubble, st, style, outfi
         </mesh>
       </group>
       {/* 雙腿：大腿水平向前、小腿垂到地面（褲子顏色） */}
-      {[-1, 1].map((sx) => (
+      {kneel && [-1, 1].map((sx) => (
+        <group key={sx} position={[sx * 0.1, 0, 0.06]}>
+          <mesh position={[0, 0.075, 0.2]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <capsuleGeometry args={[0.07, 0.28, 4, 10]} />
+            <meshStandardMaterial color={o.pants} {...mat} />
+          </mesh>
+          <mesh position={[0, 0.02, 0.0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <capsuleGeometry args={[0.055, 0.3, 4, 10]} />
+            <meshStandardMaterial color={o.pants} {...mat} />
+          </mesh>
+        </group>
+      ))}
+      {!kneel && [-1, 1].map((sx) => (
         <group key={sx} position={[sx * 0.1, 0, 0.06]}>
           <mesh position={[0, 0.075, 0.18]} rotation={[Math.PI / 2, 0, 0]} castShadow>
             <capsuleGeometry args={[0.07, 0.3, 4, 10]} />
@@ -146,7 +161,7 @@ function PlaceholderAvatar({ seat, isSelf, dim = false, bubble, st, style, outfi
             <capsuleGeometry args={[0.055, Math.max(0.05, legLen - 0.11), 4, 10]} />
             <meshStandardMaterial color={o.pants} {...mat} />
           </mesh>
-          <mesh position={[0, -seat.pos_y + 0.03, 0.46]} castShadow>
+          <mesh position={[0, -seatBaseY + 0.03, 0.46]} castShadow>
             <boxGeometry args={[0.1, 0.06, 0.2]} />
             <meshStandardMaterial color="#1c1a19" {...mat} />
           </mesh>
@@ -185,14 +200,15 @@ function AvatarModel({ url, seat, isSelf, bubble, st, style, outfit }) {
       }
     });
     applyOutfitToRig(root, resolveOutfit(outfit, seat.occupant_id ?? '')); // 只有使用者自訂過才會動材質
-    return { root, info: applySittingPose(root) };
-  }, [scene, outfitKey(outfit), seat.occupant_id]); // eslint-disable-line react-hooks/exhaustive-deps
+    return { root, info: applySittingPose(root, style === 'kneel') };
+  }, [scene, outfitKey(outfit), seat.occupant_id, style]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const hipUp = style === 'kneel' ? 0.1 : SIT.hipAboveSeat;
   const hipHeight = rig.info?.hipHeight ?? FALLBACK_HIP_HEIGHT;
   const headHeight = rig.info?.headHeight ?? hipHeight + 0.65;
-  const labelY = headHeight - hipHeight + SIT.hipAboveSeat + SIT.labelAboveHead;
+  const labelY = headHeight - hipHeight + hipUp + SIT.labelAboveHead;
   // 角色根節點在座位座標系的位置（和下面 <primitive position> 一致）
-  const rootPos = useMemo(() => new THREE.Vector3(0, SIT.hipAboveSeat - hipHeight, -SIT.backShift), [hipHeight]);
+  const rootPos = useMemo(() => new THREE.Vector3(0, hipUp - hipHeight, -SIT.backShift), [hipHeight, hipUp]);
   const tmp = useMemo(() => ({ head: new THREE.Vector3(), sh: new THREE.Vector3(), tl: new THREE.Vector3(), tr: new THREE.Vector3() }), []);
 
   // 每幀：決定動作（打電腦 / 看書 / 喝咖啡）→ 前傾、點頭 → 雙手 IK 伸到目標
@@ -233,7 +249,7 @@ function AvatarModel({ url, seat, isSelf, bubble, st, style, outfit }) {
 
   return (
     <>
-      <primitive object={rig.root} position={[0, SIT.hipAboveSeat - hipHeight, -SIT.backShift]} />
+      <primitive object={rig.root} position={[0, hipUp - hipHeight, -SIT.backShift]} />
       <AvatarHud seat={seat} isSelf={isSelf} y={labelY} bubble={bubble} />
     </>
   );
@@ -242,14 +258,16 @@ function AvatarModel({ url, seat, isSelf, bubble, st, style, outfit }) {
 /* ------------------------- 對外組件 ------------------------- */
 export default function UserAvatar3D({ seat, isSelf = false, bubble, outfit }) {
   const url = useMemo(() => sanitizeAvatarUrl(seat.occupant_avatar_url), [seat.occupant_avatar_url]);
-  const style = seatStyle(seat);
+  const P = usePalette();
+  const style = effectiveStyle(seat, P.furniture);
+  const seatY = seatHeight(seat, P.furniture);
   const st = useRef(null);
   if (!st.current) st.current = createSeatedState();
   const placeholder = <PlaceholderAvatar seat={seat} isSelf={isSelf} bubble={bubble} st={st} style={style} outfit={outfit} />;
 
   return (
     // 座標：seat.pos_* 是椅面中心；rot_y 決定面向
-    <group position={[seat.pos_x, seat.pos_y, seat.pos_z]} rotation={[0, seat.rot_y, 0]}>
+    <group position={[seat.pos_x, seatY, seat.pos_z]} rotation={[0, seat.rot_y, 0]}>
       {url ? (
         <AvatarErrorBoundary key={url} fallback={placeholder}>
           <Suspense fallback={<PlaceholderAvatar seat={seat} isSelf={isSelf} dim bubble={bubble} st={st} style={style} outfit={outfit} />}>

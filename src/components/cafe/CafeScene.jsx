@@ -48,7 +48,7 @@ export default function CafeScene({
   useEffect(() => {
     seats.forEach((s) => preloadAvatar(s.occupant_avatar_url));
   }, [seats]);
-  const palette = useMemo(() => makePalette(theme.palette), [theme]);
+  const palette = useMemo(() => makePalette({ ...theme.palette, furniture: theme.furniture ?? null }), [theme]);
 
   return (
     <div className={className ?? 'h-full w-full'}>

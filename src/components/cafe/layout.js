@@ -61,6 +61,11 @@ export const PLANT_SPOTS = [
 
 const STYLE_BY_INDEX = Object.fromEntries(SEAT_LAYOUT.map((s) => [s.i, s.style]));
 
+/** 跪坐（榻榻米）主題：椅面只有座墊高度，姿勢改為跪坐 */
+export const KNEEL_SEAT_Y = 0.09;
+export const seatHeight = (seat, furniture) => (furniture === 'zen' ? KNEEL_SEAT_Y : seat.pos_y);
+export const effectiveStyle = (seat, furniture) => (furniture === 'zen' ? 'kneel' : seatStyle(seat));
+
 /** 依座位編號決定椅子款式 */
 export function seatStyle(seat) {
   return STYLE_BY_INDEX[seat.seat_index] ?? 'chair';

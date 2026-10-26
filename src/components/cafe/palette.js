@@ -10,6 +10,7 @@ export const DEFAULT_PALETTE = {
   sofa: '#4b2b18',
   shade: '#141414',
   orb: '#e0a766', orbHover: '#ffbe73',
+  furniture: null,   // null = 預設皮革桌椅；'neon' | 'nordic' | 'zen' = 主題專屬桌椅（ThemeFurniture.jsx）
 };
 
 export const makePalette = (over) => ({ ...DEFAULT_PALETTE, ...(over ?? {}) });

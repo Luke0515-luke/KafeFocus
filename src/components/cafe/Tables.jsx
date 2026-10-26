@@ -1,6 +1,7 @@
 import { usePalette } from './palette';
 import { RoundedBox } from '@react-three/drei';
 import { TABLES } from './layout';
+import { ThemedTables } from './ThemeFurniture';
 
 const BLACK_METAL = { color: '#1b1b1d', roughness: 0.45, metalness: 0.7 };
 const BRASS = { color: '#a8844f', roughness: 0.35, metalness: 0.85 };
@@ -223,6 +224,8 @@ function LowTable({ t }) {
 
 export default function Tables({ textures }) {
   const { marble } = textures;
+  const P = usePalette();
+  if (P.furniture) return <ThemedTables f={P.furniture} />;
   return (
     <group>
       {TABLES.map((t) => {

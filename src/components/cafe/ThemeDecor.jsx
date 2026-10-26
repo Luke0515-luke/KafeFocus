@@ -232,19 +232,108 @@ function Torii({ position }) {
   );
 }
 
+/** 床之間：凹進去的壁龕 + 掛軸（墨色圓相）+ 花器 */
+function Tokonoma({ position }) {
+  const scroll = useCanvasTexture((g, W, H) => {
+    g.fillStyle = '#efe3c4'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#6b2f2f'; g.fillRect(0, 0, W, 18); g.fillRect(0, H - 18, W, 18);
+    g.strokeStyle = '#1b1b1b'; g.lineWidth = 12; g.lineCap = 'round';
+    g.beginPath(); g.arc(W / 2, H * 0.42, W * 0.27, 0.4, Math.PI * 2 - 0.15); g.stroke();
+    g.font = 'bold 54px serif'; g.fillStyle = '#1b1b1b'; g.textAlign = 'center'; g.fillText('靜', W / 2, H * 0.84);
+  }, 200, 440);
+  return (
+    <group position={position}>
+      <mesh position={[0, 2.0, 0.02]}><boxGeometry args={[1.5, 3.3, 0.06]} /><meshStandardMaterial color="#2a1a0e" roughness={0.6} /></mesh>
+      <mesh position={[0, 2.0, 0.06]}><planeGeometry args={[1.3, 3.1]} /><meshStandardMaterial color="#cdb98f" roughness={0.95} /></mesh>
+      <mesh position={[0, 2.35, 0.09]}><planeGeometry args={[0.62, 1.36]} /><meshStandardMaterial map={scroll} roughness={0.9} /></mesh>
+      <mesh position={[0, 0.5, 0.2]}><boxGeometry args={[1.5, 0.12, 0.45]} /><meshStandardMaterial color="#3a2616" roughness={0.5} /></mesh>
+      <mesh position={[0, 0.8, 0.2]}><cylinderGeometry args={[0.07, 0.1, 0.4, 12]} /><meshStandardMaterial color="#7a8a8a" roughness={0.4} /></mesh>
+      {[[-0.1, 1.15, 0.5], [0.05, 1.3, -0.3], [0.12, 1.05, 0.6]].map(([x, y, r], i) => (
+        <mesh key={i} position={[x, y, 0.2]} rotation={[0, 0, r]}><cylinderGeometry args={[0.006, 0.008, 0.5, 5]} /><meshStandardMaterial color="#5a4630" /></mesh>
+      ))}
+      {[[-0.18, 1.38], [0.1, 1.5], [0.2, 1.22]].map(([x, y], i) => <mesh key={i} position={[x, y, 0.2]}><sphereGeometry args={[0.06, 8, 8]} /><meshStandardMaterial color="#f0a8bb" roughness={0.9} /></mesh>)}
+    </group>
+  );
+}
+
+/** 屏風：四折，金底墨竹 */
+function Byobu({ position, rotationY = 0 }) {
+  const map = useCanvasTexture((g, W, H) => {
+    g.fillStyle = '#d9b873'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#3b4a2a'; g.lineWidth = 6;
+    for (let i = 0; i < 4; i += 1) { const x = 40 + i * 70; g.beginPath(); g.moveTo(x, H); g.lineTo(x + 6, 20); g.stroke(); for (let y = 60; y < H; y += 70) { g.beginPath(); g.moveTo(x - 10 + 3, y); g.lineTo(x + 14, y); g.stroke(); } }
+  }, 300, 360);
+  return (
+    <group position={position} rotation={[0, rotationY, 0]}>
+      {[0, 1, 2, 3].map((i) => (
+        <group key={i} position={[(i - 1.5) * 0.52, 0, (i % 2) * 0.16]} rotation={[0, (i % 2 ? -1 : 1) * 0.32, 0]}>
+          <mesh position={[0, 0.8, 0]} castShadow><boxGeometry args={[0.54, 1.6, 0.04]} /><meshStandardMaterial color="#2a1a0e" roughness={0.6} /></mesh>
+          <mesh position={[0, 0.8, 0.025]}><planeGeometry args={[0.46, 1.5]} /><meshStandardMaterial map={map} roughness={0.8} /></mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** 行燈（和紙落地燈） */
+function Andon({ position }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.06, 0]}><boxGeometry args={[0.32, 0.12, 0.32]} /><meshStandardMaterial color="#2a1a0e" roughness={0.6} /></mesh>
+      <mesh position={[0, 0.5, 0]}><boxGeometry args={[0.28, 0.66, 0.28]} /><meshStandardMaterial color="#fff0d0" emissive="#ffb36b" emissiveIntensity={0.85} roughness={0.9} /></mesh>
+      {[-1, 1].flatMap((a) => [-1, 1].map((b) => <mesh key={`${a}${b}`} position={[a * 0.14, 0.5, b * 0.14]}><boxGeometry args={[0.025, 0.68, 0.025]} /><meshStandardMaterial color="#2a1a0e" /></mesh>))}
+      <mesh position={[0, 0.86, 0]}><boxGeometry args={[0.34, 0.04, 0.34]} /><meshStandardMaterial color="#2a1a0e" /></mesh>
+      <pointLight position={[0, 0.5, 0]} color="#ffb36b" intensity={5} distance={5} decay={2} />
+    </group>
+  );
+}
+
+/** 玄關鞋櫃：脫鞋處 + 木屐 */
+function ShoeRack({ position, rotationY = 0 }) {
+  return (
+    <group position={position} rotation={[0, rotationY, 0]}>
+      <mesh position={[0, 0.2, 0]} castShadow><boxGeometry args={[1.2, 0.4, 0.4]} /><meshStandardMaterial color="#4a321c" roughness={0.6} /></mesh>
+      {[-0.4, 0, 0.4].map((x) => <mesh key={x} position={[x, 0.42, 0.02]}><boxGeometry args={[0.22, 0.03, 0.1]} /><meshStandardMaterial color="#7a5a3a" /></mesh>)}
+      {[-0.4, 0, 0.4].map((x) => <group key={`g${x}`} position={[x, 0.46, 0.02]}>{[-0.06, 0.06].map((dx) => <mesh key={dx} position={[dx, 0, 0]}><boxGeometry args={[0.03, 0.04, 0.08]} /><meshStandardMaterial color="#2a1a0e" /></mesh>)}</group>)}
+    </group>
+  );
+}
+
+/** 枯山水：白砂 + 耙紋 + 石頭 */
+function RockGarden({ position }) {
+  const sand = useCanvasTexture((g, W, H) => {
+    g.fillStyle = '#e9e4d6'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = 'rgba(120,110,90,0.5)'; g.lineWidth = 2;
+    for (let y = 8; y < H; y += 10) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    [[90, 70, 38], [190, 120, 26]].forEach(([x, y, r]) => { for (let k = 1; k < 4; k += 1) { g.beginPath(); g.arc(x, y, r + k * 9, 0, Math.PI * 2); g.stroke(); } });
+  }, 260, 160);
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.05, 0]}><boxGeometry args={[2.6, 0.1, 1.6]} /><meshStandardMaterial color="#3a2616" roughness={0.7} /></mesh>
+      <mesh position={[0, 0.101, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[2.46, 1.46]} /><meshStandardMaterial map={sand} roughness={1} /></mesh>
+      {[[-0.75, 0.12, 0.1, 0.22], [0.55, 0.1, -0.15, 0.15]].map(([x, y, z, r], i) => <mesh key={i} position={[x, y + 0.04, z]} scale={[1.2, 0.8, 1]} castShadow><dodecahedronGeometry args={[r, 0]} /><meshStandardMaterial color="#5a5a58" roughness={0.9} /></mesh>)}
+    </group>
+  );
+}
+
 export function ZenDecor() {
   return (
     <group>
       <Shoji position={[-6.2, 2.7, -4.86]} />
       <Shoji position={[-4.5, 2.7, -4.86]} />
-      <Shoji position={[0.6, 2.7, -4.86]} />
-      <Shoji position={[2.3, 2.7, -4.86]} />
-      <Shoji position={[-8.86, 2.7, 5.5]} rotationY={Math.PI / 2} />
-      <Noren position={[5.4, 2.6, -3.9]} />
-      <Torii position={[6.8, 0, 7.8]} />
+      <Shoji position={[2.9, 2.7, -4.86]} />
+      <Shoji position={[4.6, 2.7, -4.86]} />
+      <Shoji position={[-8.86, 2.7, 6.5]} rotationY={Math.PI / 2} />
+      <Tokonoma position={[-1.2, 0, -4.78]} />
+      <Noren position={[6.9, 2.6, -3.9]} />
+      <Torii position={[6.8, 0, 8.2]} />
+      <Byobu position={[-7.6, 0, 8.3]} rotationY={0.2} />
+      <ShoeRack position={[3.4, 0, 8.5]} />
+      <Andon position={[-7.9, 0, 3.2]} />
+      <Andon position={[8.2, 0, 4.2]} />
+      <RockGarden position={[2.0, 0, 7.4]} />
       <Bonsai position={[-8.3, 0, 1.6]} scale={1.1} />
       <Bonsai position={[8.4, 0, -2.4]} />
-      <Bonsai position={[-1.0, 0, 8.2]} scale={0.9} />
       <Lantern position={[1.0, 3.2, 1.0]} light />
       <Lantern position={[5.5, 3.3, 4.0]} light />
       <Lantern position={[0.8, 3.3, 5.2]} light />
@@ -252,6 +341,122 @@ export function ZenDecor() {
       <Lantern position={[3.5, 3.3, -3.4]} />
       <Lantern position={[7.4, 3.3, 1.5]} />
       <Lantern position={[-7.0, 3.3, -2.0]} />
+    </group>
+  );
+}
+
+/* ====================== 北歐風 ====================== */
+function GlobeLamp({ position, light = false, r = 0.2 }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 1.2, 0]}><cylinderGeometry args={[0.004, 0.004, 2.4, 5]} /><meshStandardMaterial color="#444" /></mesh>
+      <mesh><sphereGeometry args={[r, 20, 16]} /><meshStandardMaterial color="#fffaf0" emissive="#ffe6c0" emissiveIntensity={0.85} roughness={0.5} /></mesh>
+      {light && <pointLight color="#ffe4b8" intensity={11} distance={9} decay={2} />}
+    </group>
+  );
+}
+
+function StarLamp({ position }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 1.1, 0]}><cylinderGeometry args={[0.004, 0.004, 2.2, 5]} /><meshStandardMaterial color="#444" /></mesh>
+      <mesh scale={[1, 1, 0.4]}><octahedronGeometry args={[0.22, 0]} /><meshStandardMaterial color="#fff6e0" emissive="#ffd9a0" emissiveIntensity={0.9} /></mesh>
+      <mesh rotation={[0, 0, Math.PI / 4]} scale={[1, 1, 0.4]}><octahedronGeometry args={[0.22, 0]} /><meshStandardMaterial color="#fff6e0" emissive="#ffd9a0" emissiveIntensity={0.9} /></mesh>
+    </group>
+  );
+}
+
+function LadderShelf({ position }) {
+  const wood = { color: '#d9c29c', roughness: 0.6 };
+  return (
+    <group position={position}>
+      {[-0.55, 0.55].map((x) => <mesh key={x} position={[x, 1.5, 0]} rotation={[0, 0, x * 0.06]} castShadow><boxGeometry args={[0.06, 3.1, 0.06]} /><meshStandardMaterial {...wood} /></mesh>)}
+      {[0.4, 1.1, 1.8, 2.5].map((y, i) => (
+        <group key={y}>
+          <mesh position={[0, y, 0.1]} castShadow><boxGeometry args={[1.2 - i * 0.05, 0.05, 0.4]} /><meshStandardMaterial {...wood} /></mesh>
+          <mesh position={[-0.3, y + 0.12, 0.1]}><cylinderGeometry args={[0.07, 0.09, 0.2, 12]} /><meshStandardMaterial color={['#f2efe8', '#c8d3cb', '#e5cfc6', '#a9bccd'][i]} roughness={0.5} /></mesh>
+          <mesh position={[0.15, y + 0.1, 0.1]}><boxGeometry args={[0.3, 0.16, 0.2]} /><meshStandardMaterial color={['#c8d3cb', '#e5cfc6', '#a9bccd', '#dccbb4'][i]} roughness={0.8} /></mesh>
+          <mesh position={[0.4, y + 0.08, 0.1]}><sphereGeometry args={[0.08, 10, 8]} /><meshStandardMaterial color="#ece6da" roughness={0.6} /></mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function Poster({ position, variant = 0 }) {
+  const map = useCanvasTexture((g, W, H) => {
+    g.fillStyle = '#f7f4ee'; g.fillRect(0, 0, W, H);
+    const c = [['#c8d3cb', '#e5cfc6', '#a9bccd'], ['#dccbb4', '#9db4c0', '#c8d3cb'], ['#e5cfc6', '#a9bccd', '#dccbb4']][variant % 3];
+    g.fillStyle = c[0]; g.beginPath(); g.arc(W * 0.35, H * 0.4, W * 0.22, 0, Math.PI * 2); g.fill();
+    g.fillStyle = c[1]; g.beginPath(); g.moveTo(W * 0.3, H * 0.9); g.lineTo(W * 0.62, H * 0.45); g.lineTo(W * 0.92, H * 0.9); g.fill();
+    g.fillStyle = c[2]; g.fillRect(W * 0.1, H * 0.8, W * 0.8, H * 0.04);
+  }, 240, 300);
+  return (
+    <group position={position}>
+      <mesh><boxGeometry args={[0.85, 1.05, 0.04]} /><meshStandardMaterial color="#d9c29c" roughness={0.6} /></mesh>
+      <mesh position={[0, 0, 0.025]}><planeGeometry args={[0.73, 0.93]} /><meshStandardMaterial map={map} roughness={0.9} /></mesh>
+    </group>
+  );
+}
+
+function WoodStove({ position }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.5, 0]} castShadow><boxGeometry args={[0.7, 0.8, 0.6]} /><meshStandardMaterial color="#26272b" roughness={0.5} metalness={0.5} /></mesh>
+      <mesh position={[0, 0.45, 0.305]}><planeGeometry args={[0.4, 0.34]} /><meshBasicMaterial color="#ff9a3c" toneMapped={false} /></mesh>
+      <mesh position={[0, 0.07, 0]}><boxGeometry args={[0.8, 0.14, 0.7]} /><meshStandardMaterial color="#d8d4cc" roughness={0.9} /></mesh>
+      <mesh position={[0, 2.6, -0.1]} castShadow><cylinderGeometry args={[0.07, 0.07, 3.4, 12]} /><meshStandardMaterial color="#26272b" roughness={0.5} metalness={0.5} /></mesh>
+      <pointLight position={[0, 0.5, 0.6]} color="#ff9a3c" intensity={4} distance={5} decay={2} />
+      {[0, 1, 2].map((i) => [0, 1, 2].slice(0, 3 - i).map((j) => <mesh key={`${i}${j}`} position={[0.65 + j * 0.17 + i * 0.085, 0.09 + i * 0.16, 0.05]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.075, 0.075, 0.5, 10]} /><meshStandardMaterial color="#c9a878" roughness={0.9} /></mesh>))}
+    </group>
+  );
+}
+
+function NordicPlant({ position, scale = 1 }) {
+  return (
+    <group position={position} scale={scale}>
+      <mesh position={[0, 0.2, 0]} castShadow><cylinderGeometry args={[0.2, 0.15, 0.4, 18]} /><meshStandardMaterial color="#f2efe8" roughness={0.5} /></mesh>
+      <mesh position={[0, 0.7, 0]}><cylinderGeometry args={[0.02, 0.03, 0.8, 6]} /><meshStandardMaterial color="#8a6a4b" /></mesh>
+      {[[0, 1.25, 0, 0.3], [0.2, 1.0, 0.1, 0.24], [-0.2, 1.05, -0.1, 0.26], [0.05, 0.85, -0.2, 0.2], [-0.12, 1.4, 0.15, 0.2]].map(([x, y, z, r], i) => (
+        <mesh key={i} position={[x, y, z]} scale={[1, 0.7, 1]} castShadow><sphereGeometry args={[r, 12, 10]} /><meshStandardMaterial color={i % 2 ? '#6f9a73' : '#7fae83'} roughness={0.85} /></mesh>
+      ))}
+    </group>
+  );
+}
+
+function BlanketBasket({ position }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.25, 0]} castShadow><cylinderGeometry args={[0.32, 0.26, 0.5, 20, 1, true]} /><meshStandardMaterial color="#c9a878" roughness={0.95} side={THREE.DoubleSide} /></mesh>
+      <mesh position={[0, 0.03, 0]}><cylinderGeometry args={[0.26, 0.26, 0.04, 20]} /><meshStandardMaterial color="#c9a878" /></mesh>
+      {[['#c8d3cb', 0.4], ['#e5cfc6', 0.5], ['#a9bccd', 0.6]].map(([c, y], i) => <mesh key={c} position={[(i - 1) * 0.04, y, 0]} rotation={[0, i, 0]}><boxGeometry args={[0.46, 0.12, 0.36]} /><meshStandardMaterial color={c} roughness={1} /></mesh>)}
+    </group>
+  );
+}
+
+export function NordicDecor() {
+  return (
+    <group>
+      <Poster position={[-4.7, 3.0, -4.86]} variant={0} />
+      <Poster position={[3.5, 3.3, -4.86]} variant={1} />
+      <Poster position={[7.6, 3.0, -4.86]} variant={2} />
+      <Poster position={[-8.86, 3.0, 2.6]} variant={1} />
+      <LadderShelf position={[-6.9, 0, -4.7]} />
+      <WoodStove position={[8.1, 0, -4.1]} />
+      <BlanketBasket position={[-8.2, 0, 0.2]} />
+      <NordicPlant position={[-8.3, 0, -4.2]} scale={1.2} />
+      <NordicPlant position={[8.3, 0, 6.0]} />
+      <NordicPlant position={[-1.2, 0, 8.3]} scale={0.9} />
+      <NordicPlant position={[4.0, 0, 8.4]} scale={1.1} />
+      <mesh position={[6.4, 0.02, -2.7]} scale={[1, 0.04, 0.7]} rotation={[0, 0.3, 0]}><sphereGeometry args={[0.8, 16, 12]} /><meshStandardMaterial color="#f4f0e6" roughness={1} /></mesh>
+      <GlobeLamp position={[1.0, 3.2, 1.0]} light r={0.26} />
+      <GlobeLamp position={[5.5, 3.2, 4.0]} light />
+      <GlobeLamp position={[0.8, 3.2, 5.2]} light />
+      <GlobeLamp position={[-3.0, 3.2, 2.5]} light />
+      <GlobeLamp position={[3.5, 3.2, -3.3]} />
+      <GlobeLamp position={[-7.0, 3.2, -2.0]} />
+      <StarLamp position={[7.4, 3.3, 1.5]} />
+      <StarLamp position={[-5.4, 3.3, 5.0]} />
     </group>
   );
 }

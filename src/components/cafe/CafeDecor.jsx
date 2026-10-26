@@ -6,7 +6,7 @@ import Tables from './Tables';
 import { PLANT_SPOTS } from './layout';
 import PianoPlayer from './PianoPlayer';
 import { usePalette } from './palette';
-import { NeonDecor, ZenDecor } from './ThemeDecor';
+import { NeonDecor, NordicDecor, ZenDecor } from './ThemeDecor';
 
 const BLACK_METAL = { color: '#1b1b1d', roughness: 0.45, metalness: 0.7 };
 const BRASS = { color: '#a8844f', roughness: 0.35, metalness: 0.85 };
@@ -473,13 +473,14 @@ export default function CafeDecor({ theme }) {
       {!custom && <WallShelf position={[-6.4, 4.3, -4.7]} length={3.6} />}
       {theme.decor === 'neon' && <NeonDecor />}
       {theme.decor === 'zen' && <ZenDecor />}
+      {theme.decor === 'nordic' && <NordicDecor />}
       <BaristaCounter menu={tex.menu} />
       {!custom && <Sideboard position={[-2.2, 0, -4.55]} records={f.records} />}
       {f.piano && <Piano position={[8.0, 0, -4.55]} />}
       {f.piano && <PianoPlayer position={[8.0, 0, -4.55]} />}
       {!custom && <LeftWallDecor art={tex.art} />}
       {!custom && <Bookcase position={[-8.6, 0, 7.6]} />}
-      <SofaCorner theme={theme} />
+      {theme.decor !== 'zen' && <SofaCorner theme={theme} />}
 
       <Rug position={[-5.6, 0, 5.0]} size={[4.2, 3.2]} colors={theme.rugs?.[0] ?? (dark ? ['#4a1f1c', '#5b2a22', '#3a2a22'] : ['#a8756a', '#c08a7c', '#d8c3a8'])} />
       <Rug position={[1.0, 0, 1.0]} size={[5.4, 3.6]} colors={theme.rugs?.[1] ?? (dark ? ['#2b2622', '#3a322c', '#241f1c'] : ['#8d7c68', '#a89580', '#cdbba2'])} />
