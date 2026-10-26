@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BookOpen, Flame, Trophy, X } from 'lucide-react';
+import { Flame, Trophy, X } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { dateKey } from '../lib/scheduler';
 import { BEANS, ROASTS, beanInfo, fmtDuration, levelTitle, openProfile, weekStart } from '../lib/openProfile';
@@ -88,6 +88,14 @@ export function LeaderboardPanel({ myId, onClose }) {
     });
     return () => { alive = false; };
   }, [sort]);
+  // 只顯示目前選的排行類型
+  const METRIC_LABEL = { today: '今日讀書', week: '本週讀書', total: '累計讀書', xp: '經驗值' };
+  const metricValue = (r) => {
+    if (sort === 'today') return fmtDuration(r.today_minutes);
+    if (sort === 'week') return fmtDuration(r.week_minutes ?? 0);
+    if (sort === 'xp') return `${r.xp} XP`;
+    return fmtDuration(r.total_minutes);
+  };
   const medal = (n) => ['🥇', '🥈', '🥉'][n - 1] ?? n;
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-2 sm:p-3" {...backdropProps(onClose)}>
@@ -111,12 +119,11 @@ export function LeaderboardPanel({ myId, onClose }) {
                 <Avatar name={r.display_name} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-stone-100">{r.display_name}{r.user_id === myId ? '（你）' : ''}</span>
-                  <span className="block text-xs text-stone-500">Lv.{r.level} {beanInfo(r.level).emoji} {levelTitle(r.level)} · {r.xp} XP</span>
+                  <span className="block text-xs text-stone-500">Lv.{r.level} {beanInfo(r.level).emoji} {levelTitle(r.level)}</span>
                 </span>
-                <span className="shrink-0 text-right text-xs">
-                  <span className={`flex items-center justify-end gap-1 ${sort === 'today' ? 'font-semibold text-emerald-400' : 'text-emerald-500/80'}`}><BookOpen size={11} />今天 {fmtDuration(r.today_minutes)}</span>
-                  <span className={`block ${sort === 'week' ? 'font-semibold text-sky-400' : 'text-sky-500/80'}`}>本週 {fmtDuration(r.week_minutes ?? 0)}</span>
-                  <span className={`block ${sort === 'total' ? 'font-semibold text-stone-200' : 'text-stone-400'}`}>累計 {fmtDuration(r.total_minutes)}</span>
+                <span className="shrink-0 text-right">
+                  <span className="block text-sm font-semibold text-amber-300">{metricValue(r)}</span>
+                  <span className="block text-[10px] text-stone-500">{METRIC_LABEL[sort]}</span>
                 </span>
               </button>
             </li>
