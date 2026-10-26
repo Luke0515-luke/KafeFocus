@@ -63,6 +63,11 @@ alter table public.study_rewards drop constraint if exists study_rewards_kind_ch
 alter table public.study_rewards add constraint study_rewards_kind_check
   check (kind in ('session','item_complete','day_clear','streak','badge','level_jump'));
 
+-- 等級曲線：level = floor((xp/50)^(2/3)) + 1（升到第 L+1 級需要 50 * L^1.5 XP）
+-- 每升 1 級 = 咖啡豆前進 1 個烘焙階段（淺焙 → 中焙 → 深焙 → 重焙，之後換下一種豆），共 20 種豆 × 4 階段 = 80 級。
+create or replace function public.study_level(p_xp numeric) returns int
+language sql immutable as $$ select floor(power(greatest(p_xp, 0) / 50.0, 2.0 / 3.0) + 1e-9)::int + 1 $$;
+
 -- 5. RLS
 alter table public.study_items    enable row level security;
 alter table public.study_sessions enable row level security;
@@ -124,7 +129,7 @@ begin
     update public.study_sessions set done = false, completed_on = null, completed_at = null where id = s.id;
     delete from public.study_rewards where user_id = v_uid and session_id = s.id;
     select coalesce(sum(xp),0) into v_total from public.study_rewards where user_id = v_uid;
-    return jsonb_build_object('undone', true, 'total_xp', v_total, 'level', floor(sqrt(v_total/50.0))::int + 1);
+    return jsonb_build_object('undone', true, 'total_xp', v_total, 'level', public.study_level(v_total));
   end if;
   if s.done then return jsonb_build_object('already', true, 'total_xp', v_prev); end if;
   if s.plan_date > p_today then raise exception 'future_session'; end if;
@@ -150,15 +155,15 @@ begin
     get diagnostics v_n = row_count;
     if v_n > 0 then
       v_bonus := v_bonus || jsonb_build_object('label', '🏁 項目完成：' || coalesce(it.title,''), 'xp', 50);
-      -- 完成者獎勵：補足經驗值，自動直升下一級（更高級的咖啡豆種子）
+      -- 完成者獎勵：補足經驗值，自動直升 1 級（下一個烘焙階段，或更高級的咖啡豆）
       select coalesce(sum(xp),0) into v_cur from public.study_rewards where user_id = v_uid;
-      v_lv   := floor(sqrt(v_cur / 50.0))::int + 1;
-      v_jump := (50 * v_lv * v_lv - v_cur)::int;   -- 下一級門檻 = 50 * 目前等級^2
+      v_lv   := public.study_level(v_cur);
+      v_jump := ceil(50 * power(v_lv, 1.5))::int - v_cur::int + 1;   -- 下一級門檻 = 50 * 目前等級^1.5（+1 避免浮點誤差）
       insert into public.study_rewards(user_id, session_id, item_id, kind, ref, label, xp)
-      values (v_uid, s.id, s.item_id, 'level_jump', s.item_id::text, '🫘 完成者獎勵：直升下一級咖啡豆', v_jump)
+      values (v_uid, s.id, s.item_id, 'level_jump', s.item_id::text, '🫘 完成者獎勵：咖啡豆直升下一個烘焙階段', v_jump)
       on conflict do nothing;
       get diagnostics v_n = row_count;
-      if v_n > 0 then v_bonus := v_bonus || jsonb_build_object('label', '🫘 完成者獎勵：直升下一級咖啡豆', 'xp', v_jump); end if;
+      if v_n > 0 then v_bonus := v_bonus || jsonb_build_object('label', '🫘 完成者獎勵：咖啡豆直升下一個烘焙階段', 'xp', v_jump); end if;
     end if;
   end if;
 
@@ -206,40 +211,46 @@ begin
   select coalesce(sum(xp),0) into v_total from public.study_rewards where user_id = v_uid;
   return jsonb_build_object(
     'xp_gained', v_xp, 'capped', v_eff < s.minutes, 'bonuses', v_bonus, 'streak', v_streak,
-    'total_xp', v_total, 'level', floor(sqrt(v_total/50.0))::int + 1,
-    'prev_level', floor(sqrt(v_prev/50.0))::int + 1);
+    'total_xp', v_total, 'level', public.study_level(v_total),
+    'prev_level', public.study_level(v_prev));
 end $$;
 
 -- 8. 排行榜（讀書時間 = 咖啡廳專注計時「完整跑完」的分鐘數，來自 focus_logs）
-create or replace function public.study_leaderboard(p_day_start timestamptz, p_sort text default 'total', p_limit int default 50)
-returns table (rank bigint, user_id uuid, display_name text, avatar_url text, total_minutes bigint, today_minutes bigint, xp bigint, level int)
+-- 回傳欄位有變（多了 week_minutes），舊版函式要先刪掉
+drop function if exists public.study_leaderboard(timestamptz,text,int,timestamptz);
+create or replace function public.study_leaderboard(p_day_start timestamptz, p_sort text default 'total', p_limit int default 50, p_week_start timestamptz default null)
+returns table (rank bigint, user_id uuid, display_name text, avatar_url text, total_minutes bigint, today_minutes bigint, week_minutes bigint, xp bigint, level int)
 language sql security definer set search_path = public stable as $$
   with agg as (
     select p.id, p.display_name, p.avatar_url,
-           coalesce(f.total, 0) as total, coalesce(f.today, 0) as today, coalesce(r.xp, 0) as xp
+           coalesce(f.total, 0) as total, coalesce(f.today, 0) as today, coalesce(f.week, 0) as week, coalesce(r.xp, 0) as xp
     from public.profiles p
-    left join (select l.user_id, sum(l.minutes) total, sum(l.minutes) filter (where l.started_at >= p_day_start) today
+    left join (select l.user_id, sum(l.minutes) total,
+                      sum(l.minutes) filter (where l.started_at >= p_day_start) today,
+                      sum(l.minutes) filter (where l.started_at >= coalesce(p_week_start, p_day_start)) week
                from public.focus_logs l group by l.user_id) f on f.user_id = p.id
     left join (select w.user_id, sum(w.xp) xp from public.study_rewards w group by w.user_id) r on r.user_id = p.id
   ), ranked as (
     select a.*, row_number() over (
-      order by case p_sort when 'today' then a.today when 'xp' then a.xp else a.total end desc, a.total desc, a.display_name) rk
+      order by case p_sort when 'today' then a.today when 'week' then a.week when 'xp' then a.xp else a.total end desc, a.total desc, a.display_name) rk
     from agg a
   )
-  select rk, id, display_name, avatar_url, total, today, xp, floor(sqrt(xp/50.0))::int + 1
+  select rk, id, display_name, avatar_url, total, today, week, xp, public.study_level(xp)
   from ranked where rk <= least(greatest(p_limit,1),200) or id = auth.uid() order by rk;
 $$;
 
 -- 9. 點某位使用者的名字看到的資料卡
-create or replace function public.study_user_card(p_user_id uuid, p_day_start timestamptz, p_today date)
+drop function if exists public.study_user_card(uuid,timestamptz,date);
+create or replace function public.study_user_card(p_user_id uuid, p_day_start timestamptz, p_today date, p_week_start timestamptz default null)
 returns jsonb language plpgsql security definer set search_path = public stable as $$
-declare p public.profiles; v_total bigint; v_today bigint; v_xp bigint; v_streak int := 0; d date; v_badges jsonb;
+declare p public.profiles; v_total bigint; v_today bigint; v_week bigint; v_xp bigint; v_streak int := 0; d date; v_badges jsonb;
 begin
   -- 訪客也能看資料卡（只有讀書時間 / 等級 / 徽章，不含 email）
   select * into p from public.profiles where id = p_user_id;
   if not found then return null; end if;
-  select coalesce(sum(minutes),0), coalesce(sum(minutes) filter (where started_at >= p_day_start),0)
-    into v_total, v_today from public.focus_logs where user_id = p_user_id;
+  select coalesce(sum(minutes),0), coalesce(sum(minutes) filter (where started_at >= p_day_start),0),
+         coalesce(sum(minutes) filter (where started_at >= coalesce(p_week_start, p_day_start)),0)
+    into v_total, v_today, v_week from public.focus_logs where user_id = p_user_id;
   select coalesce(sum(xp),0) into v_xp from public.study_rewards where user_id = p_user_id;
   select coalesce(jsonb_agg(label order by created_at), '[]'::jsonb) into v_badges
     from public.study_rewards where user_id = p_user_id and kind = 'badge';
@@ -249,15 +260,15 @@ begin
     v_streak := v_streak + 1; d := d - 1;
   end loop;
   return jsonb_build_object('id', p.id, 'display_name', p.display_name, 'avatar_url', p.avatar_url,
-    'total_minutes', v_total, 'today_minutes', v_today, 'xp', v_xp,
-    'level', floor(sqrt(v_xp/50.0))::int + 1, 'streak', v_streak, 'badges', v_badges);
+    'total_minutes', v_total, 'today_minutes', v_today, 'week_minutes', v_week, 'xp', v_xp,
+    'level', public.study_level(v_xp), 'streak', v_streak, 'badges', v_badges);
 end $$;
 
 revoke execute on function public.replace_study_plan(jsonb)                       from public, anon;
 revoke execute on function public.complete_study_session(uuid,date,boolean)       from public, anon;
-revoke execute on function public.study_leaderboard(timestamptz,text,int)         from public;
-revoke execute on function public.study_user_card(uuid,timestamptz,date)          from public;
+revoke execute on function public.study_leaderboard(timestamptz,text,int,timestamptz)         from public;
+revoke execute on function public.study_user_card(uuid,timestamptz,date,timestamptz)          from public;
 grant  execute on function public.replace_study_plan(jsonb)                       to authenticated;
 grant  execute on function public.complete_study_session(uuid,date,boolean)       to authenticated;
-grant  execute on function public.study_leaderboard(timestamptz,text,int)         to anon, authenticated;   -- 訪客可看排行榜
-grant  execute on function public.study_user_card(uuid,timestamptz,date)          to anon, authenticated;
+grant  execute on function public.study_leaderboard(timestamptz,text,int,timestamptz)         to anon, authenticated;   -- 訪客可看排行榜
+grant  execute on function public.study_user_card(uuid,timestamptz,date,timestamptz)          to anon, authenticated;
