@@ -9,9 +9,18 @@ const ERROR_TEXT = {
   no_seat: '你還沒有入座',
   invalid_status: '無效的狀態',
   profile_missing: '找不到你的個人檔案',
+  not_studying: '目前不在專注中',
 };
 
+// 資料庫還沒執行 focus_log_fix.sql
+const NEEDS_FIX_SQL = /end_focus_early|log_my_finished_focus|could not find the function/i;
+
 function toError(e) {
+  if (NEEDS_FIX_SQL.test(e?.message ?? '')) {
+    const err = new Error('資料庫還沒更新：請到 Supabase → SQL Editor 執行 focus_log_fix.sql 一次。');
+    err.code = 'needs_sql';
+    return err;
+  }
   const key = Object.keys(ERROR_TEXT).find((k) => e?.message?.includes(k));
   const err = new Error(key ? ERROR_TEXT[key] : e?.message ?? '發生未知錯誤');
   err.code = key ?? e?.code;
@@ -141,7 +150,8 @@ export function useCafeRealtime(cafeId, userId) {
   // ---- 關閉網頁 / 元件卸載 → 自動釋放座位 ----
   // supabase-js 的請求在頁面卸載時會被瀏覽器中斷，所以用 fetch + keepalive 直打 REST。
   useEffect(() => {
-    const release = () => {
+    const release = (e) => {
+      if (e?.persisted) return; // 進入 bfcache（手機切換 App 等）不是真的關閉，座位交給伺服器依心跳 / 專注倒數處理
       if (!mySeatIdRef.current || !accessTokenRef.current) return;
       try {
         fetch(`${SUPABASE_URL}/rest/v1/rpc/release_my_seat`, {
@@ -188,6 +198,14 @@ export function useCafeRealtime(cafeId, userId) {
     return data;
   }, [mergeSeat]);
 
+  // 提前結束專注：伺服器依實際專注分鐘數記錄，並把座位改成休息
+  const endFocusEarly = useCallback(async () => {
+    const { data, error: err } = await supabase.rpc('end_focus_early');
+    if (err) throw toError(err);
+    if (data?.seat) mergeSeat(data.seat);
+    return data;
+  }, [mergeSeat]);
+
   // Presence 說已不在線的佔用者 → 畫面上視為空位（DB 由 cron 清理）
   const visibleSeats = useMemo(() => seats.map((s) => {
     if (!s.occupant_id || !onlineIds || onlineIds.has(s.occupant_id)) return s;
@@ -197,6 +215,6 @@ export function useCafeRealtime(cafeId, userId) {
   return {
     seats: visibleSeats, mySeat, loading, error, connection,
     onlineCount: onlineIds?.size ?? 0,
-    claimSeat, leaveSeat, setStatus, refetch: fetchSeats,
+    claimSeat, leaveSeat, setStatus, endFocusEarly, refetch: fetchSeats,
   };
 }

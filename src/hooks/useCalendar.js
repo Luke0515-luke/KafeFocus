@@ -21,7 +21,7 @@ export function useCalendar(userId, year, month /* 0 起算 */) {
       supabase.from('calendar_events').select('*')
         .gte('event_date', dateKey(range.first)).lt('event_date', dateKey(range.next))
         .order('event_date').order('start_time', { nullsFirst: true }),
-      supabase.from('focus_logs').select('minutes, started_at')
+      supabase.from('focus_logs').select('id, minutes, started_at, task')
         .gte('started_at', range.first.toISOString()).lt('started_at', range.next.toISOString()),
     ]);
     if (ev.error) setError(ev.error.message); else setEvents(ev.data ?? []);
@@ -42,6 +42,15 @@ export function useCalendar(userId, year, month /* 0 起算 */) {
     logs.forEach((l) => { const k = dateKey(new Date(l.started_at)); m[k] = (m[k] ?? 0) + l.minutes; });
     return m;
   }, [logs]);
+
+  // 每天的專注紀錄清單（依開始時間排序）＋當月總分鐘數
+  const focusLogsByDay = useMemo(() => {
+    const m = {};
+    [...logs].sort((a, b) => new Date(a.started_at) - new Date(b.started_at))
+      .forEach((l) => { (m[dateKey(new Date(l.started_at))] ||= []).push(l); });
+    return m;
+  }, [logs]);
+  const focusMonthTotal = useMemo(() => logs.reduce((a, l) => a + l.minutes, 0), [logs]);
 
   const addEvent = useCallback(async ({ title, date, time, color, note }) => {
     const { data, error: err } = await supabase.from('calendar_events')
@@ -64,5 +73,5 @@ export function useCalendar(userId, year, month /* 0 起算 */) {
     if (err) { setError(err.message); load(); }
   }, [load]);
 
-  return { events, eventsByDay, focusByDay, loading, error, addEvent, toggleDone, removeEvent };
+  return { events, eventsByDay, focusByDay, focusLogsByDay, focusMonthTotal, loading, error, reload: load, addEvent, toggleDone, removeEvent };
 }
