@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, CalendarDays, ChevronDown, ChevronUp, Coffee, ListChecks, LogOut, Trophy, Users, Wifi, WifiOff } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarDays, ChevronDown, ChevronUp, Coffee, ListChecks, LogIn, LogOut, MessagesSquare, Trophy, Users, Wifi, WifiOff } from 'lucide-react';
 import { formatMMSS, useCountdown } from '../../hooks/useCountdown';
 import { sanitizeAvatarUrl } from '../../lib/avatarUrl';
 import OutfitEditor from './OutfitEditor';
@@ -20,7 +20,7 @@ const clampMin = (v, fallback) => Math.min(120, Math.max(1, Math.round(Number(v)
 export default function ControlPanel({
   cafeName, profile, mySeat, connection, onlineCount, notice, userId, outfit, onOutfitChange,
   onSetStatus, onLeave, onSaveAvatar, onBack, onSignOut, onOpenCalendar, onOpenPlanner, onOpenBoard,
-  planToday = [], onFocusPlan,
+  planToday = [], onFocusPlan, isGuest = false, onSignIn, onOpenForum,
 }) {
   const [task, setTask] = useState('');
   const [focusMin, setFocusMin] = useState(() => lsGet(FOCUS_KEY, 25));
@@ -132,7 +132,8 @@ export default function ControlPanel({
         </div>
       </div>
 
-      {!mySeat && <p className="text-sm">點地板就能走動，點發光的小圓點，角色會走過去坐下開始讀書。</p>}
+      {isGuest && <p className="rounded-lg bg-stone-800 p-2 text-xs text-amber-200">訪客模式：可以逛逛、看大家讀書。入座、聊天、新增行程時再登入／註冊就好。</p>}
+      {!isGuest && !mySeat && <p className="text-sm">點地板就能走動，點發光的小圓點，角色會走過去坐下開始讀書。</p>}
 
       {/* 時間設定（入座前後都能調整） */}
       <div className="space-y-2">
@@ -186,6 +187,7 @@ export default function ControlPanel({
         </div>
       )}
 
+      {!isGuest && (<>
       <div className="space-y-1.5 border-t border-stone-700 pt-3">
         <label className="text-xs font-medium" htmlFor="avatar-url">我的頭像（Ready Player Me .glb）</label>
         <div className="flex gap-2">
@@ -200,6 +202,7 @@ export default function ControlPanel({
       </div>
 
       <OutfitEditor userId={userId} outfit={outfit} onChange={onOutfitChange} />
+      </>)}
 
       <div className="flex gap-2 border-t border-stone-700 pt-3">
         <button type="button" onClick={onOpenPlanner} className={`${btn} bg-amber-700 text-white hover:bg-amber-600`}>
@@ -213,10 +216,19 @@ export default function ControlPanel({
         <button type="button" onClick={onOpenCalendar} className={`${btn} bg-stone-800 hover:bg-stone-700`}>
           <CalendarDays size={16} /> 行事曆
         </button>
-        <button type="button" disabled={busy} onClick={() => run(onSignOut)} className={`${btn} bg-stone-800 hover:bg-stone-700`}>
-          <LogOut size={16} /> 登出
+        <button type="button" onClick={onOpenForum} className={`${btn} bg-stone-800 hover:bg-stone-700`}>
+          <MessagesSquare size={16} /> 讀書論壇
         </button>
       </div>
+      {isGuest ? (
+        <button type="button" onClick={onSignIn} className={`${btn} w-full bg-emerald-700 text-white hover:bg-emerald-600`}>
+          <LogIn size={16} /> 登入 / 註冊
+        </button>
+      ) : (
+        <button type="button" disabled={busy} onClick={() => run(onSignOut)} className={`${btn} w-full bg-stone-800 hover:bg-stone-700`}>
+          <LogOut size={16} /> 登出
+        </button>
+      )}
 
       {(msg || notice) && <p className="text-xs text-rose-400">{msg || notice}</p>}
     </div>
