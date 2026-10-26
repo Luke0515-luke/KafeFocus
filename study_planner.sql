@@ -58,6 +58,11 @@ create table if not exists public.study_rewards (
 );
 create index if not exists study_rewards_user_idx on public.study_rewards(user_id);
 
+-- 允許新的獎勵種類：完成者直升下一級咖啡豆（level_jump）
+alter table public.study_rewards drop constraint if exists study_rewards_kind_check;
+alter table public.study_rewards add constraint study_rewards_kind_check
+  check (kind in ('session','item_complete','day_clear','streak','badge','level_jump'));
+
 -- 5. RLS
 alter table public.study_items    enable row level security;
 alter table public.study_sessions enable row level security;
@@ -106,6 +111,7 @@ declare
   s public.study_sessions; it public.study_items;
   v_prior int; v_eff int; v_xp int; v_n int; v_streak int := 0; d date;
   v_bonus jsonb := '[]'::jsonb; v_total int; v_prev int; v_mins bigint; v_done_cnt int; r record;
+  v_cur bigint; v_lv int; v_jump int;
 begin
   if v_uid is null then raise exception 'not_authenticated'; end if;
   if p_today is null or abs(p_today - current_date) > 1 then raise exception 'bad_date'; end if;
@@ -142,7 +148,18 @@ begin
     values (v_uid, s.id, s.item_id, 'item_complete', s.item_id::text, '🏁 項目完成：' || coalesce(it.title,''), 50)
     on conflict do nothing;
     get diagnostics v_n = row_count;
-    if v_n > 0 then v_bonus := v_bonus || jsonb_build_object('label', '🏁 項目完成：' || coalesce(it.title,''), 'xp', 50); end if;
+    if v_n > 0 then
+      v_bonus := v_bonus || jsonb_build_object('label', '🏁 項目完成：' || coalesce(it.title,''), 'xp', 50);
+      -- 完成者獎勵：補足經驗值，自動直升下一級（更高級的咖啡豆種子）
+      select coalesce(sum(xp),0) into v_cur from public.study_rewards where user_id = v_uid;
+      v_lv   := floor(sqrt(v_cur / 50.0))::int + 1;
+      v_jump := (50 * v_lv * v_lv - v_cur)::int;   -- 下一級門檻 = 50 * 目前等級^2
+      insert into public.study_rewards(user_id, session_id, item_id, kind, ref, label, xp)
+      values (v_uid, s.id, s.item_id, 'level_jump', s.item_id::text, '🫘 完成者獎勵：直升下一級咖啡豆', v_jump)
+      on conflict do nothing;
+      get diagnostics v_n = row_count;
+      if v_n > 0 then v_bonus := v_bonus || jsonb_build_object('label', '🫘 完成者獎勵：直升下一級咖啡豆', 'xp', v_jump); end if;
+    end if;
   end if;
 
   -- 今日全勝
@@ -218,7 +235,7 @@ create or replace function public.study_user_card(p_user_id uuid, p_day_start ti
 returns jsonb language plpgsql security definer set search_path = public stable as $$
 declare p public.profiles; v_total bigint; v_today bigint; v_xp bigint; v_streak int := 0; d date; v_badges jsonb;
 begin
-  if auth.uid() is null then raise exception 'not_authenticated'; end if;
+  -- 訪客也能看資料卡（只有讀書時間 / 等級 / 徽章，不含 email）
   select * into p from public.profiles where id = p_user_id;
   if not found then return null; end if;
   select coalesce(sum(minutes),0), coalesce(sum(minutes) filter (where started_at >= p_day_start),0)
@@ -238,9 +255,9 @@ end $$;
 
 revoke execute on function public.replace_study_plan(jsonb)                       from public, anon;
 revoke execute on function public.complete_study_session(uuid,date,boolean)       from public, anon;
-revoke execute on function public.study_leaderboard(timestamptz,text,int)         from public, anon;
-revoke execute on function public.study_user_card(uuid,timestamptz,date)          from public, anon;
+revoke execute on function public.study_leaderboard(timestamptz,text,int)         from public;
+revoke execute on function public.study_user_card(uuid,timestamptz,date)          from public;
 grant  execute on function public.replace_study_plan(jsonb)                       to authenticated;
 grant  execute on function public.complete_study_session(uuid,date,boolean)       to authenticated;
-grant  execute on function public.study_leaderboard(timestamptz,text,int)         to authenticated;
-grant  execute on function public.study_user_card(uuid,timestamptz,date)          to authenticated;
+grant  execute on function public.study_leaderboard(timestamptz,text,int)         to anon, authenticated;   -- 訪客可看排行榜
+grant  execute on function public.study_user_card(uuid,timestamptz,date)          to anon, authenticated;

@@ -37,3 +37,14 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 - 每個主題可用 `theme.furniture` 指定自己的桌椅（`src/components/cafe/ThemeFurniture.jsx`）：`neon` 玻璃桌＋發光賽博椅、`nordic` 原木桌＋布面椅、`zen` 矮茶几＋布座墊。
 - `櫻語茶屋`（zen-tea）：榻榻米地板，角色改為跪坐（`sitPose.js` 的 kneel 姿勢）。
 - `北歐暖光咖啡館`（nordic-cafe）：新增，SQL 為 `new_nordic_cafe.sql`。
+
+## 6. 訪客瀏覽、讀書論壇、咖啡豆等級、聊天室名稱
+- **訪客可以先逛**：沒登入也能看大廳、進咖啡廳房間、看大家讀書、看排行榜與論壇。只有「新增行程 / 讀書計畫」「入座」「聊天」「發文留言按讚」時才會跳出登入／註冊視窗（`AuthGate.jsx` 不再擋人，`AuthPanel.jsx` 新增 `modal` 模式）。
+- **讀書論壇**：`ForumPanel.jsx`（大廳與咖啡廳面板都有「讀書論壇」按鈕）。可分享讀書方法、選分類與科目、搜尋、按讚、留言，只能刪自己的文章／留言。SQL：`forum_guest.sql`。
+- **咖啡豆種子等級**：`src/lib/openProfile.js` 的 `BEANS` 共 20 種（生豆種子 → 巴西聖多斯 → … → 耶加雪菲 → 藍山 → 藝伎 → 競標級藝伎）。完成整個讀書項目（完成者）會自動直升下一級（`study_planner.sql` 的 `level_jump` 獎勵）。資料卡有咖啡豆圖鑑。
+- **聊天室名稱**：聊天室標題與訊息署名都改用用戶名（顯示名稱 → 註冊時填的名稱 → Email 前綴）。
+
+### 部署順序
+1. Supabase → SQL Editor 重新執行 `study_planner.sql`（可重複執行）。
+2. 再執行新的 `forum_guest.sql`。
+3. 重新部署前端。
