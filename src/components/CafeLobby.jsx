@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Coffee, LogIn, MessagesSquare, Leaf, ListChecks, LogOut, Music, Store, Sun, Trophy, Users, Zap, Flower2, Snowflake } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { CAFE_ORDER, getMeta, getTheme } from '../config/themes';
-import { beanInfo, fmtDuration, levelStart } from '../lib/openProfile';
+import { beanInfo, fmtDuration, levelFromXp, levelStart } from '../lib/openProfile';
 import { Search, Shuffle } from 'lucide-react';
 
 const ICONS = { Coffee, Music, Sun, Leaf, Store, Zap, Flower2, Snowflake };
@@ -44,7 +44,7 @@ export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOp
       if (!alive || r.error) return; // 還沒執行 study_planner.sql 時就不顯示
       const xp = (r.data ?? []).reduce((a, x) => a + (x.xp || 0), 0);
       const today = (f.data ?? []).reduce((a, x) => a + (x.minutes || 0), 0);
-      setMe({ xp, today, level: Math.floor(Math.sqrt(xp / 50)) + 1 });
+      setMe({ xp, today, level: levelFromXp(xp) });
     });
     return () => { alive = false; };
   }, [userId]);
@@ -133,7 +133,7 @@ export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOp
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <div className="text-xs text-stone-400">我的咖啡豆種子</div>
-                  <div className="text-base font-semibold text-amber-300">{bean.emoji} Lv.{me.level} {bean.name}</div>
+                  <div className="text-base font-semibold text-amber-300">{bean.emoji} Lv.{me.level} {bean.full}</div>
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-stone-400">今天專注</div>
@@ -141,7 +141,7 @@ export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOp
                 </div>
               </div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-stone-700"><div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${pct}%` }} /></div>
-              <div className="mt-1 text-[11px] text-stone-500">{me.xp} XP・距離下一級還差 {Math.max(0, b - me.xp)} XP（完成整個讀書項目可直升一級）</div>
+              <div className="mt-1 text-[11px] text-stone-500">{me.xp} XP・距離下一級（{beanInfo(me.level + 1).full}）還差 {Math.max(0, Math.ceil(b - me.xp))} XP・完成整個讀書項目可直升一級</div>
             </section>
           );
         })()}

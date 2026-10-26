@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { BookOpen, Flame, Trophy, X } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { dateKey } from '../lib/scheduler';
-import { BEANS, beanInfo, fmtDuration, levelTitle, openProfile } from '../lib/openProfile';
+import { BEANS, ROASTS, beanInfo, fmtDuration, levelTitle, openProfile, weekStart } from '../lib/openProfile';
 import { backdropProps } from '../lib/backdrop';
 
 const dayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); };
@@ -15,7 +15,7 @@ export function UserCard({ userId, myId, onClose }) {
   const [err, setErr] = useState('');
   useEffect(() => {
     let alive = true;
-    supabase.rpc('study_user_card', { p_user_id: userId, p_day_start: dayStart(), p_today: dateKey(new Date()) }).then(({ data, error }) => {
+    supabase.rpc('study_user_card', { p_user_id: userId, p_day_start: dayStart(), p_today: dateKey(new Date()), p_week_start: weekStart() }).then(({ data, error }) => {
       if (!alive) return;
       if (error) setErr(dbMsg(error.message)); setCard(data ?? null);
     });
@@ -37,19 +37,29 @@ export function UserCard({ userId, myId, onClose }) {
         {err && <p className="mb-2 text-xs text-rose-400">{err}</p>}
         {card && (
           <>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-stone-800 p-3"><div className="text-xs text-stone-400">總讀書時間</div><div className="mt-1 text-lg font-semibold text-stone-100">{fmtDuration(card.total_minutes)}</div></div>
-              <div className="rounded-xl bg-stone-800 p-3"><div className="text-xs text-stone-400">今天讀書時間</div><div className="mt-1 text-lg font-semibold text-emerald-400">{fmtDuration(card.today_minutes)}</div></div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl bg-stone-800 p-3"><div className="text-xs text-stone-400">今天</div><div className="mt-1 text-sm font-semibold text-emerald-400">{fmtDuration(card.today_minutes)}</div></div>
+              <div className="rounded-xl bg-stone-800 p-3"><div className="text-xs text-stone-400">本週</div><div className="mt-1 text-sm font-semibold text-sky-400">{fmtDuration(card.week_minutes ?? 0)}</div></div>
+              <div className="rounded-xl bg-stone-800 p-3"><div className="text-xs text-stone-400">累計</div><div className="mt-1 text-sm font-semibold text-stone-100">{fmtDuration(card.total_minutes)}</div></div>
             </div>
             <div className="mt-3 rounded-xl bg-stone-800 p-3">
               <div className="text-xs text-stone-400">目前的咖啡豆種子</div>
-              <div className="mt-0.5 text-sm font-semibold text-amber-300">{beanInfo(card.level).emoji} {beanInfo(card.level).name}</div>
-              <div className="text-[11px] text-stone-500">{beanInfo(card.level).origin}・{beanInfo(card.level).note}</div>
-              <div className="mt-2 flex flex-wrap gap-1" aria-label="咖啡豆圖鑑">
-                {BEANS.map((b, i) => (
-                  <span key={b.name} title={i < card.level ? b.name : '尚未解鎖'} className={`grid h-5 w-5 place-items-center rounded text-[11px] ${i < card.level ? 'bg-amber-700/70' : 'bg-stone-700/50 opacity-40'}`}>{i < card.level ? b.emoji : '·'}</span>
-                ))}
-              </div>
+              {(() => { const bi = beanInfo(card.level); return (
+                <>
+                  <div className="mt-0.5 text-sm font-semibold text-amber-300">{bi.emoji} {bi.full}</div>
+                  <div className="text-[11px] text-stone-500">{bi.origin}・{bi.note}</div>
+                  <div className="mt-2 flex items-center gap-1" aria-label="烘焙程度">
+                    {ROASTS.map((r, i) => (
+                      <span key={r} className={`rounded px-1.5 py-0.5 text-[10px] ${i <= bi.roastIdx ? 'bg-amber-700/80 text-amber-50' : 'bg-stone-700/50 text-stone-500'}`}>{r}</span>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1" aria-label="咖啡豆圖鑑">
+                    {BEANS.map((b, i) => (
+                      <span key={b.name} title={i <= bi.beanIdx ? b.name : '尚未解鎖'} className={`grid h-5 w-5 place-items-center rounded text-[11px] ${i <= bi.beanIdx ? 'bg-amber-700/70' : 'bg-stone-700/50 opacity-40'} ${i === bi.beanIdx ? 'ring-1 ring-amber-300' : ''}`}>{i <= bi.beanIdx ? b.emoji : '·'}</span>
+                    ))}
+                  </div>
+                </>
+              ); })()}
             </div>
             <div className="mt-3 flex items-center gap-1.5 text-sm text-stone-300"><Flame size={15} className="text-orange-400" />連續完成計畫 {card.streak} 天</div>
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -64,7 +74,7 @@ export function UserCard({ userId, myId, onClose }) {
   );
 }
 
-/** 排行榜：今日 / 累計 / 經驗值。點名字看資料卡。 */
+/** 排行榜：今日 / 本週 / 累計 / 經驗值。點名字看資料卡。 */
 export function LeaderboardPanel({ myId, onClose }) {
   const [sort, setSort] = useState('today');
   const [rows, setRows] = useState(null);
@@ -72,7 +82,7 @@ export function LeaderboardPanel({ myId, onClose }) {
   useEffect(() => {
     let alive = true;
     setRows(null);
-    supabase.rpc('study_leaderboard', { p_day_start: dayStart(), p_sort: sort, p_limit: 50 }).then(({ data, error }) => {
+    supabase.rpc('study_leaderboard', { p_day_start: dayStart(), p_sort: sort, p_limit: 50, p_week_start: weekStart() }).then(({ data, error }) => {
       if (!alive) return;
       if (error) { setErr(dbMsg(error.message)); setRows([]); } else { setErr(''); setRows(data ?? []); }
     });
@@ -87,7 +97,7 @@ export function LeaderboardPanel({ myId, onClose }) {
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-stone-800" aria-label="關閉"><X size={18} /></button>
         </div>
         <div className="flex gap-1.5 px-4 py-3 text-sm">
-          {[['today', '今日'], ['total', '累計'], ['xp', '經驗值']].map(([k, v]) => (
+          {[['today', '今日'], ['week', '本週'], ['total', '累計'], ['xp', '經驗值']].map(([k, v]) => (
             <button key={k} type="button" onClick={() => setSort(k)} className={`rounded-lg px-3 py-1.5 ${sort === k ? 'bg-amber-600 text-white' : 'bg-stone-800 text-stone-400 hover:bg-stone-700'}`}>{v}</button>
           ))}
         </div>
@@ -101,11 +111,12 @@ export function LeaderboardPanel({ myId, onClose }) {
                 <Avatar name={r.display_name} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-stone-100">{r.display_name}{r.user_id === myId ? '（你）' : ''}</span>
-                  <span className="block text-xs text-stone-500">Lv.{r.level} {beanInfo(r.level).emoji}{levelTitle(r.level)} · {r.xp} XP</span>
+                  <span className="block text-xs text-stone-500">Lv.{r.level} {beanInfo(r.level).emoji} {levelTitle(r.level)} · {r.xp} XP</span>
                 </span>
                 <span className="shrink-0 text-right text-xs">
-                  <span className="flex items-center justify-end gap-1 text-emerald-400"><BookOpen size={11} />今天 {fmtDuration(r.today_minutes)}</span>
-                  <span className="block text-stone-400">累計 {fmtDuration(r.total_minutes)}</span>
+                  <span className={`flex items-center justify-end gap-1 ${sort === 'today' ? 'font-semibold text-emerald-400' : 'text-emerald-500/80'}`}><BookOpen size={11} />今天 {fmtDuration(r.today_minutes)}</span>
+                  <span className={`block ${sort === 'week' ? 'font-semibold text-sky-400' : 'text-sky-500/80'}`}>本週 {fmtDuration(r.week_minutes ?? 0)}</span>
+                  <span className={`block ${sort === 'total' ? 'font-semibold text-stone-200' : 'text-stone-400'}`}>累計 {fmtDuration(r.total_minutes)}</span>
                 </span>
               </button>
             </li>

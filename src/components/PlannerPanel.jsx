@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Flag, RefreshCw, Sparkles, Trash2, X } from 'lucide-react';
 import { useStudyPlan } from '../hooks/useStudyPlan';
 import { addDays, dateKey, diffDays, parseDate, toMin } from '../lib/scheduler';
-import { beanInfo, fmtDuration, levelStart, levelTitle } from '../lib/openProfile';
+import { beanInfo, fmtDuration, levelFromXp, levelStart, levelTitle } from '../lib/openProfile';
 import { backdropProps } from '../lib/backdrop';
 
 const WD = ['日', '一', '二', '三', '四', '五', '六'];
@@ -197,7 +197,7 @@ export default function PlannerPanel({ userId, onClose }) {
   const totalMin = sessions.reduce((a, s) => a + s.minutes, 0);
   const doneMin = sessions.filter((s) => s.done).reduce((a, s) => a + s.minutes, 0);
   const pct = totalMin ? Math.round((doneMin / totalMin) * 100) : 0;
-  const level = Math.floor(Math.sqrt(xp / 50)) + 1;
+  const level = levelFromXp(xp);
   const lvPct = Math.round(((xp - levelStart(level)) / (levelStart(level + 1) - levelStart(level))) * 100);
 
   const toggle = async (s) => {
