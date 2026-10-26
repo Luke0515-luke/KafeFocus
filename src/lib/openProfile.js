@@ -2,7 +2,11 @@
 export const openProfile = (uid) => {
   if (uid) window.dispatchEvent(new CustomEvent('kf-open-profile', { detail: uid }));
 };
-/** 20 種咖啡豆種子：等級越高，豆子越稀有。完成整個讀書項目（完成者）會自動直升下一級。 */
+/**
+ * 20 種咖啡豆種子，每一種都要依序經過 淺焙 → 中焙 → 深焙 → 重焙 四個階段，
+ * 重焙之後才會換成下一種更高級的豆子（20 種 × 4 階段 = 80 級）。
+ * 每升 1 級前進 1 個烘焙階段；完成整個讀書項目（完成者）會自動直升 1 級。
+ */
 export const BEANS = [
   { emoji: '🌱', name: '生豆種子', origin: '尚未烘焙', note: '一切都從一顆種子開始' },
   { emoji: '🫘', name: '巴西 聖多斯', origin: '巴西', note: '堅果、巧克力，溫和順口' },
@@ -26,9 +30,20 @@ export const BEANS = [
   { emoji: '💎', name: '傳奇 競標級藝伎', origin: '巴拿馬翡翠莊園', note: '萬中選一的傳奇種子' },
 ];
 export const LEVEL_TITLES = BEANS.map((b) => b.name);
-export const beanInfo = (lv) => BEANS[Math.min(BEANS.length, Math.max(1, Math.floor(Number(lv)) || 1)) - 1];
-export const levelTitle = (lv) => beanInfo(lv).name;
-export const levelStart = (lv) => 50 * (lv - 1) ** 2; // 與 SQL 的 floor(sqrt(xp/50))+1 對應
+export const ROASTS = ['淺焙', '中焙', '深焙', '重焙'];
+export const beanInfo = (lv) => {
+  const stage = Math.max(0, (Math.floor(Number(lv)) || 1) - 1);
+  const beanIdx = Math.min(BEANS.length - 1, Math.floor(stage / ROASTS.length));
+  const roastIdx = Math.min(ROASTS.length - 1, stage - beanIdx * ROASTS.length); // 最後一種豆停在重焙
+  const bean = BEANS[beanIdx];
+  return { ...bean, beanIdx, roastIdx, roast: ROASTS[roastIdx], full: `${bean.name} ${ROASTS[roastIdx]}` };
+};
+export const levelTitle = (lv) => beanInfo(lv).full;
+// 等級曲線（要和 study_planner.sql 的 study_level() 一致）：level = floor((xp/50)^(2/3)) + 1
+export const levelFromXp = (xp) => Math.floor(Math.pow(Math.max(0, xp) / 50, 2 / 3) + 1e-9) + 1;
+export const levelStart = (lv) => 50 * Math.pow(Math.max(0, lv - 1), 1.5);
+/** 本週（週一 00:00，本地時間）的起點，給「本週讀書時間」使用 */
+export const weekStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toISOString(); };
 export const fmtDuration = (m) => {
   m = Math.round(m || 0);
   if (m < 60) return `${m} 分鐘`;
