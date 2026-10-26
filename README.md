@@ -32,3 +32,8 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 - `櫻語茶屋`（zen-tea）：拉門紙窗、紙燈籠、盆栽櫻花、暖簾、鳥居。SQL：`new_zen_cafe.sql`。
 - 專屬擺飾在 `src/components/cafe/ThemeDecor.jsx`；主題以 `theme.decor` 啟用。
 - 專注面板顯示「今日計畫」，選一個開始專注，跑完整輪會自動完成該區塊並給 XP；分頁標題顯示倒數、時間到會響提示音。
+
+## 5. 主題專屬桌椅、榻榻米跪坐、北歐咖啡廳
+- 每個主題可用 `theme.furniture` 指定自己的桌椅（`src/components/cafe/ThemeFurniture.jsx`）：`neon` 玻璃桌＋發光賽博椅、`nordic` 原木桌＋布面椅、`zen` 矮茶几＋布座墊。
+- `櫻語茶屋`（zen-tea）：榻榻米地板，角色改為跪坐（`sitPose.js` 的 kneel 姿勢）。
+- `北歐暖光咖啡館`（nordic-cafe）：新增，SQL 為 `new_nordic_cafe.sql`。
