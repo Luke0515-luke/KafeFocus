@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AuthGate from './components/AuthGate';
 import CafeLobby from './components/CafeLobby';
 import CalendarPanel from './components/CalendarPanel';
@@ -62,7 +62,33 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar, onOpenPlan
     claimSeat, leaveSeat, setStatus,
   } = useCafeRealtime(cafe?.id, userId);
 
-  useFocusLogger({ mySeat, userId, cafeId: cafe?.id });
+  // 今天還沒完成的計畫區塊：可在專注面板一鍵開始，跑完一輪會自動勾選並加經驗值
+  const [planToday, setPlanToday] = useState([]);
+  const [toast, setToast] = useState('');
+  const linkedRef = useRef(null);
+  const loadPlan = useCallback(async () => {
+    const today = new Date(); const pad = (n) => String(n).padStart(2, '0');
+    const key = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    const { data, error: e } = await supabase.from('study_sessions')
+      .select('id, minutes, kind, start_time, study_items(title)').eq('plan_date', key).eq('done', false).order('start_time');
+    if (!e) setPlanToday((data ?? []).map((s) => ({ id: s.id, minutes: s.minutes, kind: s.kind, title: s.study_items?.title ?? '' })));
+  }, []);
+  useEffect(() => { loadPlan(); }, [loadPlan]);
+  useEffect(() => { if (!toast) return undefined; const t = setTimeout(() => setToast(''), 6000); return () => clearTimeout(t); }, [toast]);
+
+  const handleFocusLogged = useCallback(async () => {
+    const id = linkedRef.current;
+    if (!id) return;
+    linkedRef.current = null;
+    const d = new Date(); const pad = (n) => String(n).padStart(2, '0');
+    const { data, error: e } = await supabase.rpc('complete_study_session', { p_session_id: id, p_today: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, p_done: true });
+    if (e || !data || data.already) return;
+    const bonus = (data.bonuses ?? []).map((b) => `${b.label} +${b.xp}`).join('、');
+    setToast(`✅ 計畫區塊完成　+${data.xp_gained} XP${bonus ? `　${bonus}` : ''}${data.level > data.prev_level ? `　🎉 升級 Lv.${data.level}` : ''}`);
+    loadPlan();
+  }, [loadPlan]);
+
+  useFocusLogger({ mySeat, userId, cafeId: cafe?.id, onLogged: handleFocusLogged });
 
   // 真正入座（走到椅子旁邊之後，或已經坐著要換位時呼叫）
   const handleSit = useCallback(async (seat) => {
@@ -132,7 +158,10 @@ function CafeRoom({ slug, session, onBack, onSignOut, onOpenCalendar, onOpenPlan
         onOpenCalendar={onOpenCalendar}
         onOpenPlanner={onOpenPlanner}
         onOpenBoard={onOpenBoard}
+        planToday={planToday}
+        onFocusPlan={(id) => { linkedRef.current = id; }}
       />
+      {toast && <div className="pointer-events-none absolute left-1/2 top-4 z-40 -translate-x-1/2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-stone-950 shadow-xl">{toast}</div>}
       <ChatPanel messages={players.messages} myId={userId} onSend={players.sendChat} />
       {(cafe === undefined || loading) && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center text-amber-100">載入咖啡廳中…</div>
