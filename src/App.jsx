@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import AuthGate from './components/AuthGate';
 import AuthPanel from './components/AuthPanel';
 import ForumPanel from './components/ForumPanel';
+import CreditsPanel from './components/CreditsPanel';
 import CafeLobby from './components/CafeLobby';
 import CalendarPanel from './components/CalendarPanel';
 import PlannerPanel from './components/PlannerPanel';
@@ -197,6 +198,7 @@ function Main({ session }) {
   const [plannerOpen, setPlannerOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
   const [forumOpen, setForumOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
   const [authHint, setAuthHint] = useState(null); // null = 不顯示登入視窗；字串 = 顯示並附上原因
   const [profileId, setProfileId] = useState(null);
   useEffect(() => {
@@ -209,6 +211,7 @@ function Main({ session }) {
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
       if (authHint !== null) setAuthHint(null);
+      else if (creditsOpen) setCreditsOpen(false);
       else if (profileId) setProfileId(null);
       else if (forumOpen) setForumOpen(false);
       else if (boardOpen) setBoardOpen(false);
@@ -217,7 +220,7 @@ function Main({ session }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [authHint, profileId, forumOpen, boardOpen, plannerOpen, calendarOpen]);
+  }, [authHint, creditsOpen, profileId, forumOpen, boardOpen, plannerOpen, calendarOpen]);
   const signOut = useCallback(async () => { await supabase.auth.signOut(); }, []);
   const requireAuth = useCallback((hint = '') => setAuthHint(hint || '登入後就能使用完整功能。'), []);
   useEffect(() => { if (session) setAuthHint(null); }, [session]); // 登入成功 → 自動關掉視窗
@@ -238,12 +241,13 @@ function Main({ session }) {
       {slug ? (
         <CafeRoom key={slug} slug={slug} session={session} onBack={() => go(null)} onSignOut={signOut} onSignIn={signIn} onRequireAuth={requireAuth} onOpenCalendar={openCalendar} onOpenPlanner={openPlanner} onOpenBoard={() => setBoardOpen(true)} onOpenForum={openForum} />
       ) : (
-        <CafeLobby session={session} onSelect={go} onSignOut={signOut} onSignIn={signIn} onOpenCalendar={openCalendar} onOpenPlanner={openPlanner} onOpenBoard={() => setBoardOpen(true)} onOpenForum={openForum} />
+        <CafeLobby onOpenCredits={() => setCreditsOpen(true)} session={session} onSelect={go} onSignOut={signOut} onSignIn={signIn} onOpenCalendar={openCalendar} onOpenPlanner={openPlanner} onOpenBoard={() => setBoardOpen(true)} onOpenForum={openForum} />
       )}
       {calendarOpen && session && <CalendarPanel userId={session.user.id} onClose={() => setCalendarOpen(false)} />}
       {plannerOpen && session && <PlannerPanel userId={session.user.id} onClose={() => setPlannerOpen(false)} />}
       {boardOpen && <LeaderboardPanel myId={session?.user?.id ?? null} onClose={() => setBoardOpen(false)} />}
       {forumOpen && <ForumPanel userId={session?.user?.id ?? null} onClose={() => setForumOpen(false)} onRequireAuth={requireAuth} />}
+      {creditsOpen && <CreditsPanel onClose={() => setCreditsOpen(false)} />}
       {profileId && <UserCard userId={profileId} myId={session?.user?.id ?? null} onClose={() => setProfileId(null)} />}
       {authHint !== null && <AuthPanel modal hint={authHint} onClose={() => setAuthHint(null)} />}
     </>
