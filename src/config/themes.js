@@ -143,6 +143,32 @@ export const THEMES = {
     features: { piano: false, records: false, hanging: 0, plants: 0 },
     preview: ['#f3f2ee', '#b9b3a8'],
   },
+  seaside: {
+    id: 'seaside',
+    light: true,
+    bg: '#e9c9a6', fog: [32, 58],
+    ambient: ['#ffd9b8', 0.85],
+    hemi: ['#ffe6cc', '#6a5568', 0.7],
+    key: ['#ffb27a', 1.2],                         // 夕陽的金橘色主光
+    lamp: ['#ffcf94', 0.8],
+    floor: ['#bfa98d', '#b49f84', '#c9b59a', '#ad987d', '#bba68a'],   // 海風吹過的漂流木地板
+    floorType: 'birch',
+    backWall: { type: 'plaster', color: '#f3e8d6' },                  // 沙白色灰泥牆
+    sideWall: { base: '#d6c2a2', slat: '#ecdcc0' },
+    sky: 'sunset', trim: '#5e4838',
+    accent: '#2f7fa3',                             // 海藍色牆裙
+    rugs: [['#9cc3d1', '#b7d6e0', '#7fa9ba'], ['#ead8b8', '#f4e6cb', '#d6c19c']],
+    palette: {
+      leathers: ['#2f7fa3', '#3a8fb5', '#256a88', '#4aa0c4'],         // 海藍色椅墊
+      chairWood: { color: '#c79a62', roughness: 0.65 },               // 藤編木色
+      barBody: '#c9a878', barTop: '#f0dfc0',
+      slab: '#d9b98a', square: '#dcc194', low: '#c8a878',
+      counter: '#2f7fa3', sofa: '#3a8fb5', shade: '#f3e6c8',
+      orb: '#2f9bc4', orbHover: '#6fd0f0',
+    },
+    features: { piano: false, records: false, hanging: 4, plants: 6 },
+    preview: ['#f3e8d6', '#e88a5c'],
+  },
   forest: {
     id: 'forest',
     bg: '#16221a', fog: [24, 44],
@@ -187,6 +213,10 @@ export const CAFES = {
   'nordic-cafe': {
     theme: 'nordic', icon: 'Snowflake', name: '北歐暖光咖啡館',
     blurb: '暖白牆、淺橡木地板，燕麥與灰色的布面座椅，白色穹頂吊燈、黑色小壁爐與雪景窗外，簡潔溫暖的北歐風。', tags: ['北歐', '明亮', '溫暖'],
+  },
+  'seaside-sunset': {
+    theme: 'seaside', icon: 'Sunset', name: '夕照海岸咖啡館',
+    blurb: '黃昏的海景落地窗，夕陽把海面染成金橘色。沙白牆、漂流木地板、藤編椅與海藍色椅墊，像在度假的海邊讀書。', tags: ['海景', '黃昏', '度假'],
   },
   'forest-reading': {
     theme: 'forest', icon: 'Leaf', name: '森林書屋',
