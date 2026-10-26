@@ -53,7 +53,25 @@ export default function ControlPanel({
         o.start(t0); o.stop(t0 + 0.45);
       });
     } catch { /* 瀏覽器不允許自動播放聲音時略過 */ }
+    // 分頁在背景時，用系統通知提醒時間到了
+    try {
+      if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState === 'hidden') {
+        new Notification(mySeat.status === 'studying' ? '⏰ 專注時間到！' : '☕ 休息結束！', { body: 'KafeFocus：回來看看吧' });
+      }
+    } catch { /* 忽略 */ }
   }, [remaining, mySeat?.phase_ends_at]);
+
+  // 手機讀書時保持螢幕不熄滅（瀏覽器不支援就略過）
+  const keepAwake = !!mySeat && mySeat.status === 'studying';
+  useEffect(() => {
+    if (!keepAwake || !('wakeLock' in navigator)) return undefined;
+    let lock = null; let alive = true;
+    const acquire = async () => { try { lock = await navigator.wakeLock.request('screen'); } catch { /* 省電模式等情況 */ } };
+    const onVis = () => { if (document.visibilityState === 'visible' && alive) acquire(); };
+    acquire();
+    document.addEventListener('visibilitychange', onVis);
+    return () => { alive = false; document.removeEventListener('visibilitychange', onVis); lock?.release?.().catch(() => {}); };
+  }, [keepAwake]);
 
   useEffect(() => { setAvatarInput(profile?.avatar_url ?? ''); }, [profile?.avatar_url]);
 
@@ -70,6 +88,7 @@ export default function ControlPanel({
 
   const collapseOnPhone = () => { if (!isWide()) setOpen(false); };
   const startFocus = () => run(async () => {
+    try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch { /* 忽略 */ }
     onFocusPlan?.(planId);
     await onSetStatus('studying', task, clampMin(focusMin, 25) * 60);
     collapseOnPhone();
