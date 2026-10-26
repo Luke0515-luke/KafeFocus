@@ -102,3 +102,6 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 ## 11. 新咖啡廳：夕照海岸咖啡館（seaside-sunset）
 黃昏海景風格：落日與金色海面的窗景、沙白牆、漂流木地板、藤編椅與海藍色椅墊。使用標準 24 個座位。
 **部署**：Supabase SQL Editor 執行 `new_seaside_cafe.sql`（可重複執行）→ 重新部署前端，大廳就會出現。
+
+## 12. 大廳人數與房間內不一致
+大廳原本直接數資料庫裡的佔座，但專注中斷線的人座位會保留到倒數結束，房間內用 Presence 過濾後就看不到。現在大廳改用 `cafe_seat_counts()`（只算最近 120 秒有心跳的人）。**部署**：執行 `lobby_counts_fix.sql` → 重新部署前端。
