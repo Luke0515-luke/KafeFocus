@@ -20,6 +20,7 @@ import { getMeta, getTheme } from './config/themes';
 import { supabase } from './lib/supabaseClient';
 import { loadOutfit, persistOutfit } from './lib/outfit';
 import { beanInfo } from './lib/openProfile';
+import { clearPendingPlan, readPendingPlan, savePendingPlan } from './lib/pendingPlan';
 
 /* 簡單的 hash 路由：#/cafe/<slug> 是咖啡廳房間，其餘是大廳。瀏覽器上一頁可以回大廳。 */
 const parseHash = () => {
@@ -67,7 +68,7 @@ function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, o
 
   const {
     seats, mySeat, loading, error, connection, onlineCount,
-    claimSeat, leaveSeat, setStatus,
+    claimSeat, leaveSeat, setStatus, endFocusEarly,
   } = useCafeRealtime(cafe?.id, userId);
 
   // 今天還沒完成的計畫區塊：可在專注面板一鍵開始，跑完一輪會自動勾選並加經驗值
@@ -85,19 +86,55 @@ function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, o
   useEffect(() => { loadPlan(); }, [loadPlan]);
   useEffect(() => { if (!toast) return undefined; const t = setTimeout(() => setToast(''), 6000); return () => clearTimeout(t); }, [toast]);
 
-  const handleFocusLogged = useCallback(async () => {
+  // 專注階段記錄完成：先顯示「已記錄」，若這輪綁定了今日計畫區塊，再自動勾選並給 XP
+  const handleFocusLogged = useCallback(async ({ minutes, task } = {}) => {
+    const base = minutes ? `✅ 已記錄專注 ${minutes} 分鐘${task ? `（${task}）` : ''}` : '';
+    if (base) setToast(base);
     const id = linkedRef.current;
     if (!id) return;
     linkedRef.current = null;
+    clearPendingPlan();
     const d = new Date(); const pad = (n) => String(n).padStart(2, '0');
     const { data, error: e } = await supabase.rpc('complete_study_session', { p_session_id: id, p_today: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, p_done: true });
     if (e || !data || data.already) return;
     const bonus = (data.bonuses ?? []).map((b) => `${b.label} +${b.xp}`).join('、');
-    setToast(`✅ 計畫區塊完成　+${data.xp_gained} XP${bonus ? `　${bonus}` : ''}${data.level > data.prev_level ? `　🎉 升級 Lv.${data.level} ${beanInfo(data.level).emoji}${beanInfo(data.level).name}` : ''}`);
+    setToast(`${base ? `${base}　` : ''}✅ 計畫區塊完成　+${data.xp_gained} XP${bonus ? `　${bonus}` : ''}${data.level > data.prev_level ? `　🎉 升級 Lv.${data.level} ${beanInfo(data.level).emoji}${beanInfo(data.level).name}` : ''}`);
     loadPlan();
   }, [loadPlan]);
 
-  useFocusLogger({ mySeat, userId, cafeId: cafe?.id, onLogged: handleFocusLogged });
+  const handleFocusError = useCallback((msg) => {
+    setToast(`⚠️ 專注紀錄寫入失敗（${msg}）。資料庫端仍會自動補記，請稍後到行事曆確認。`);
+  }, []);
+
+  useFocusLogger({ mySeat, userId, cafeId: cafe?.id, onLogged: handleFocusLogged, onError: handleFocusError });
+
+  // 重新整理 / 關掉網頁再回來：恢復「這輪綁定的計畫區塊」，並補完「人不在時已跑完」的那一輪
+  useEffect(() => {
+    if (!userId) return undefined;
+    const pending = readPendingPlan(userId);
+    if (!pending) return undefined;
+    if (!linkedRef.current) linkedRef.current = pending.id;
+    let alive = true;
+    (async () => {
+      const since = new Date(pending.at - 2 * 60 * 1000).toISOString(); // 容許本機與伺服器時鐘的落差
+      const { data } = await supabase.from('focus_logs').select('minutes, task, started_at')
+        .gte('started_at', since).order('started_at', { ascending: true }).limit(1);
+      const log = data?.[0];
+      if (!alive || !log) return;
+      if (new Date(log.started_at).getTime() + log.minutes * 60000 > Date.now()) return; // 還在進行中，等 logger 處理
+      handleFocusLogged({ minutes: log.minutes, task: log.task });
+    })();
+    return () => { alive = false; };
+  }, [userId, handleFocusLogged]);
+
+  // 提前結束專注：依實際專注分鐘數記錄，座位改成休息（不算完成計畫區塊）
+  const handleEndFocus = useCallback(async () => {
+    const r = await endFocusEarly();
+    if (!r?.full) { linkedRef.current = null; clearPendingPlan(); }
+    if (r?.result === 'too_short') setToast('這輪還不到 1 分鐘，沒有記錄。');
+    else if (r?.result === 'logged' || r?.result === 'already') setToast(`✅ 已記錄專注 ${r.minutes} 分鐘${r.full ? '' : '（提前結束）'}`);
+    else if (r?.result === 'error') setToast('⚠️ 專注紀錄寫入失敗，請稍後再試。');
+  }, [endFocusEarly]);
 
   // 真正入座（走到椅子旁邊之後，或已經坐著要換位時呼叫）
   const handleSit = useCallback(async (seat) => {
@@ -178,9 +215,10 @@ function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, o
         onOpenBoard={onOpenBoard}
         onOpenForum={onOpenForum}
         planToday={planToday}
-        onFocusPlan={(id) => { linkedRef.current = id; }}
+        onFocusPlan={(id) => { linkedRef.current = id; savePendingPlan(id, userId); }}
+        onEndFocus={handleEndFocus}
       />
-      {toast && <div className="pointer-events-none absolute left-1/2 top-4 z-40 -translate-x-1/2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-stone-950 shadow-xl">{toast}</div>}
+      {toast && <div className="pointer-events-none absolute left-1/2 top-4 z-40 max-w-[92vw] -translate-x-1/2 rounded-xl bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-stone-950 shadow-xl">{toast}</div>}
       <ChatPanel
         title={userName ?? '訪客'} messages={players.messages} myId={userId} onSend={players.sendChat}
         readOnly={isGuest} onRequireAuth={() => onRequireAuth('聊天要先登入／註冊，登入後就能和大家說話。')}
