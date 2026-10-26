@@ -122,25 +122,26 @@ export const THEMES = {
   nordic: {
     id: 'nordic',
     light: true,
-    bg: '#e8edf1', fog: [34, 60],
-    ambient: ['#ffffff', 1.2],
-    hemi: ['#f4f8ff', '#d9d2c4', 1.0],
-    key: ['#fff4e2', 1.45],
-    lamp: ['#ffe4b8', 0.8],
-    floor: ['#e6d3b0', '#e0cba6', '#ebd9b8', '#dcc69f', '#e3cfab'],
+    bg: '#e9ecee', fog: [34, 60],
+    ambient: ['#fffdf8', 1.15],
+    hemi: ['#f6f8fb', '#d8d2c6', 0.95],
+    key: ['#fff3df', 1.4],
+    lamp: ['#ffe2b0', 0.8],
+    // 淺橡木地板（偏灰的淡木色，不要太黃）
+    floor: ['#d9c8a8', '#d2c1a0', '#dfcfb0', '#cdbb99', '#d6c5a4'],
     floorType: 'birch',
-    backWall: { type: 'plaster', color: '#f4f3ef' },
-    sideWall: { base: '#e8e6df', slat: '#f6f4ee' },
-    sky: 'snow', trim: '#c9b48f', decor: 'nordic', furniture: 'nordic',
-    accent: '#9db4c0',
-    rugs: [['#e8e4dc', '#f3efe6', '#d9d3c6'], ['#cfd9dc', '#dfe7e9', '#bccbd0']],
+    backWall: { type: 'plaster', color: '#f3f2ee' },          // 暖白牆
+    sideWall: { base: '#ebe9e3', slat: '#f5f3ee' },
+    sky: 'snow', trim: '#ece9e2', decor: 'nordic', furniture: 'nordic',
+    // 地毯：燕麥色羊毛 + 淺灰色
+    rugs: [['#d9d3c4', '#e7e2d5', '#c8c1b0'], ['#c3c4c0', '#d3d4d0', '#aeafab']],
     palette: {
-      sofa: '#b9c6bd', counter: '#f1ede4', barBody: '#e9d8bd', barTop: '#f6efe0',
-      slab: '#efe0c6', square: '#efe0c6', low: '#e6d3b0', shade: '#f7f4ee',
-      orb: '#7fae98', orbHover: '#a9d3bf',
+      sofa: '#b9b3a8', counter: '#efebe2', barBody: '#e6d8bd', barTop: '#f1e8d6',
+      slab: '#e3d3b4', square: '#e3d3b4', low: '#d9c8a8', shade: '#f4f2ec',
+      orb: '#8aa39a', orbHover: '#b3c9c0',
     },
     features: { piano: false, records: false, hanging: 0, plants: 0 },
-    preview: ['#f4f3ef', '#9db4c0'],
+    preview: ['#f3f2ee', '#b9b3a8'],
   },
   forest: {
     id: 'forest',
@@ -185,7 +186,7 @@ export const CAFES = {
   },
   'nordic-cafe': {
     theme: 'nordic', icon: 'Snowflake', name: '北歐暖光咖啡館',
-    blurb: '白牆、淺色樺木地板與布面座椅，圓球吊燈、壁爐與雪景窗外，簡潔溫暖的北歐風。', tags: ['北歐', '明亮', '溫暖'],
+    blurb: '暖白牆、淺橡木地板，燕麥與灰色的布面座椅，白色穹頂吊燈、黑色小壁爐與雪景窗外，簡潔溫暖的北歐風。', tags: ['北歐', '明亮', '溫暖'],
   },
   'forest-reading': {
     theme: 'forest', icon: 'Leaf', name: '森林書屋',
