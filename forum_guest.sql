@@ -86,3 +86,18 @@ drop policy if exists "forum likes insert" on public.forum_likes;
 create policy "forum likes insert" on public.forum_likes for insert to authenticated with check (user_id = auth.uid());
 drop policy if exists "forum likes delete" on public.forum_likes;
 create policy "forum likes delete" on public.forum_likes for delete to authenticated using (user_id = auth.uid());
+
+-- 7. 檢舉（侵權 / 不當內容）：登入者只能新增，不能讀取；站長到 Supabase → Table editor 的 forum_reports 處理
+create table if not exists public.forum_reports (
+  id         uuid primary key default gen_random_uuid(),
+  post_id    uuid references public.forum_posts(id) on delete cascade,
+  comment_id uuid references public.forum_comments(id) on delete cascade,
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  reason     text not null check (reason in ('侵害版權','騷擾或不當內容','廣告或垃圾訊息','其他')),
+  note       text check (note is null or char_length(note) <= 300),
+  created_at timestamptz not null default now()
+);
+create index if not exists forum_reports_created_idx on public.forum_reports(created_at desc);
+alter table public.forum_reports enable row level security;
+drop policy if exists "forum reports insert" on public.forum_reports;
+create policy "forum reports insert" on public.forum_reports for insert to authenticated with check (user_id = auth.uid());

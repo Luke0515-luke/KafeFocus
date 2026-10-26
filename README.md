@@ -54,3 +54,9 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 - **大廳**：我的狀態卡（目前咖啡豆、經驗條、今天專注時間）、搜尋咖啡廳、排序（人少 / 人多優先）、「隨機進一間」；手機上按鈕改成滿版圖示列，並避開瀏覽器安全區。
 - **專注體驗**：手機專注時螢幕不熄滅（Wake Lock）、時間到且分頁在背景時送出系統通知、`Esc` 關閉最上層視窗。
 - `index.html`：`viewport-fit=cover`、`theme-color`、網頁描述。
+
+## 8. 版權與授權調整
+- `src/config/playlist.js`：三首音樂的授權改成與 mp3 檔內嵌標籤一致（CC BY-NC-ND / CC BY-NC-SA，僅限非商業），並在檔案開頭寫明限制。**網站若要收費、放廣告或接受贊助，請先換成 CC BY / CC0 的曲子。**
+- 新增 `CREDITS.md` 與網站內「版權與授權」頁（大廳最下方），列出音樂作者、套件授權與下架聯絡方式；`.env` 可選填 `VITE_CONTACT_EMAIL` 顯示聯絡信箱。
+- 論壇：發文頁加上版權提醒；文章與留言可檢舉（`forum_reports` 資料表，請重新執行 `forum_guest.sql`）。
+- Ready Player Me 已停止營運：移除貼 .glb 網址的功能，改用內建人形與外觀自訂；舊頭像可一鍵清除。
