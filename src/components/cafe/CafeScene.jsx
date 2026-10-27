@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import CafeDecor from './CafeDecor';
 import Seat3D from './Seat3D';
@@ -7,6 +7,55 @@ import UserAvatar3D, { preloadAvatar } from './UserAvatar3D';
 import WalkersLayer from './WalkersLayer';
 import { THEMES } from '../../config/themes';
 import { PaletteContext, makePalette } from './palette';
+import { TREE } from './TreeDecor';
+
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const HOME = { cam: [3, 8.5, 12.5], target: [0, 0.9, 1.2] };
+// 視角可以平移的範圍（目標點）；「跟隨我」時範圍放大到整個店內
+const BOUNDS = {
+  room: { free: { x0: -6, x1: 6, z0: -2, z1: 6.5 }, follow: { x0: -8, x1: 8, z0: -4, z1: 8.5 } },
+  tree: { free: { x0: -5, x1: 5, z0: -3, z1: 7 }, follow: { x0: -9, x1: 9, z0: -5, z1: 9 } },
+};
+
+/**
+ * 視角控制：自由平移（滑鼠右鍵 / 雙指拖曳）、跟隨我（鏡頭跟著自己的角色或座位）、回到中央。
+ * 目標點被限制在店內，避免跑出場景。
+ */
+function CameraRig({ mode, tree, resetKey, selfRef, showMe, seats, currentUserId }) {
+  const controls = useThree((s) => s.controls);
+  const camera = useThree((s) => s.camera);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    camera.position.set(...HOME.cam);
+    if (controls) { controls.target.set(...HOME.target); controls.update(); }
+  }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useFrame(() => {
+    if (!controls) return;
+    const t = controls.target;
+    if (mode === 'follow') {
+      let sx; let sz;
+      if (showMe && selfRef?.current) { sx = selfRef.current.x; sz = selfRef.current.z; } else {
+        const seat = seats.find((x) => x.occupant_id && x.occupant_id === currentUserId);
+        if (seat) { sx = seat.pos_x; sz = seat.pos_z; }
+      }
+      if (sx !== undefined) {
+        const dx = (sx - t.x) * 0.08; const dz = (sz - t.z) * 0.08;
+        t.x += dx; t.z += dz; camera.position.x += dx; camera.position.z += dz;
+      }
+    }
+    const b = BOUNDS[tree ? 'tree' : 'room'][mode === 'follow' ? 'follow' : 'free'];
+    const cx = clamp(t.x, b.x0, b.x1); const cz = clamp(t.z, b.z0, b.z1);
+    if (cx !== t.x || cz !== t.z) { camera.position.x += cx - t.x; camera.position.z += cz - t.z; t.x = cx; t.z = cz; }
+    t.y = HOME.target[1];
+    if (tree) { // 樹屋：鏡頭不能穿出樹幹
+      const ox = camera.position.x - TREE.cx; const oz = camera.position.z - TREE.cz; const d = Math.hypot(ox, oz); const max = TREE.R - 1;
+      if (d > max) { camera.position.x = TREE.cx + (ox / d) * max; camera.position.z = TREE.cz + (oz / d) * max; }
+    }
+  });
+  return null;
+}
 
 
 // 燈光全部來自主題（src/config/themes.js）。太暗就調高該主題的 ambient / hemi / key，太亮就調低。
@@ -51,9 +100,14 @@ export default function CafeScene({
   }, [seats]);
   const palette = useMemo(() => makePalette({ ...theme.palette, furniture: theme.furniture ?? null }), [theme]);
 
+  const tree = theme.decor === 'tree';
+  const [camMode, setCamMode] = useState('free'); // free | follow
+  const [resetKey, setResetKey] = useState(0);
+  const pill = (on) => `rounded-full px-3 py-1.5 text-xs font-medium transition ${on ? 'bg-amber-500 text-stone-900' : 'text-stone-200 hover:bg-stone-700'}`;
+
   return (
-    <div className={className ?? 'h-full w-full'}>
-      <Canvas shadows dpr={[1, 2]} camera={{ position: [3, 8.5, 12.5], fov: 45 }} gl={{ antialias: true }}>
+    <div className={`relative ${className ?? 'h-full w-full'}`}>
+      <Canvas shadows dpr={[1, 2]} camera={{ position: HOME.cam, fov: 45 }} gl={{ antialias: true }}>
         <color attach="background" args={[theme.bg]} />
         <fog attach="fog" args={[theme.bg, theme.fog[0], theme.fog[1]]} />
         <PaletteContext.Provider value={palette}>
@@ -85,18 +139,30 @@ export default function CafeScene({
 
         </PaletteContext.Provider>
 
-        {/* 左牆與後牆是實心的，所以限制鏡頭不能繞到牆後面 */}
+        {/* 方形咖啡廳的左牆與後牆是實心的，所以限制鏡頭不能繞到牆後面；樹屋是圓形樹洞，可以整圈繞 */}
         <OrbitControls
           makeDefault
-          enablePan={false}
-          target={[0, 0.9, 1.2]}
-          minDistance={4}
-          maxDistance={16}
-          maxPolarAngle={Math.PI / 2.15}
-          minAzimuthAngle={-Math.PI / 6}
-          maxAzimuthAngle={Math.PI / 3}
+          enablePan={camMode === 'free'}
+          screenSpacePanning={false}
+          target={HOME.target}
+          minDistance={tree ? 3 : 4}
+          maxDistance={tree ? 11 : 16}
+          maxPolarAngle={tree ? Math.PI / 2.05 : Math.PI / 2.15}
+          {...(tree ? {} : { minAzimuthAngle: -Math.PI / 6, maxAzimuthAngle: Math.PI / 3 })}
+        />
+        <CameraRig
+          mode={camMode} tree={tree} resetKey={resetKey} selfRef={players?.meRef} showMe={!!players?.showMe}
+          seats={seats} currentUserId={currentUserId}
         />
       </Canvas>
+      <div className="absolute right-2 top-2 z-20 flex max-w-[calc(100vw-1rem)] flex-col items-end gap-1">
+        <div className="flex items-center gap-0.5 rounded-full bg-stone-900/85 p-1 ring-1 ring-stone-700" role="group" aria-label="視角">
+          <button type="button" onClick={() => setCamMode('free')} className={pill(camMode === 'free')} aria-pressed={camMode === 'free'}>自由移動</button>
+          <button type="button" onClick={() => setCamMode('follow')} className={pill(camMode === 'follow')} aria-pressed={camMode === 'follow'}>跟隨我</button>
+          <button type="button" onClick={() => { setCamMode('free'); setResetKey((k) => k + 1); }} className={pill(false)}>回中央</button>
+        </div>
+        {camMode === 'free' && <p className="rounded-lg bg-stone-900/70 px-2 py-1 text-[10px] text-stone-400">拖曳旋轉・滾輪縮放・右鍵 / 雙指拖曳平移</p>}
+      </div>
     </div>
   );
 }

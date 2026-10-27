@@ -7,6 +7,7 @@ import { PLANT_SPOTS } from './layout';
 import PianoPlayer from './PianoPlayer';
 import { usePalette } from './palette';
 import { NeonDecor, NordicDecor, ZenDecor } from './ThemeDecor';
+import { TreeDecor } from './TreeDecor';
 
 const BLACK_METAL = { color: '#1b1b1d', roughness: 0.45, metalness: 0.7 };
 const BRASS = { color: '#a8844f', roughness: 0.35, metalness: 0.85 };
@@ -454,6 +455,7 @@ export default function CafeDecor({ theme }) {
   const tex = useCafeTextures(theme);
   const f = theme.features;
   const dark = !theme.light;
+  const tree = theme.decor === 'tree'; // 樹屋：整間店在巨大的空心樹幹裡，不用方形牆壁與窗戶
   const custom = !!theme.decor; // 有專屬擺飾的主題（neon / zen）不使用通用的鋼琴、書櫃、植栽、吊燈
   return (
     <group>
@@ -462,11 +464,12 @@ export default function CafeDecor({ theme }) {
         <meshStandardMaterial map={tex.floor} roughness={0.55} metalness={0.05} />
       </mesh>
 
-      <Walls tex={tex} theme={theme} />
-      <Window position={[-2.2, 2.7, -4.88]} sky={tex.dusk} />
-      <Window position={[1.8, 2.7, -4.88]} sky={tex.dusk} />
-      <Window position={[5.2, 2.7, -4.88]} sky={tex.dusk} />
-      <Window position={[-8.88, 2.6, 3.0]} rotationY={Math.PI / 2} w={2.6} sky={tex.dusk} />
+      {!tree && <Walls tex={tex} theme={theme} />}
+      {!tree && <Window position={[-2.2, 2.7, -4.88]} sky={tex.dusk} />}
+      {!tree && <Window position={[1.8, 2.7, -4.88]} sky={tex.dusk} />}
+      {!tree && <Window position={[5.2, 2.7, -4.88]} sky={tex.dusk} />}
+      {!tree && <Window position={[-8.88, 2.6, 3.0]} rotationY={Math.PI / 2} w={2.6} sky={tex.dusk} />}
+      {tree && <TreeDecor />}
       {!custom && <FairyLights theme={theme} />}
       {!custom && <WallClock position={[-0.2, 3.0, -4.84]} />}
       {!custom && <WallShelf position={[3.5, 4.35, -4.7]} length={5.5} />}
