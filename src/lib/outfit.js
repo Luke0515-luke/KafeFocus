@@ -8,6 +8,14 @@ export const SWATCHES = {
 };
 export const OUTFIT_LABELS = { skin: '膚色', shirt: '上衣', pants: '褲子', hair: '頭髮' };
 
+/** 造型選項（id, 名稱）：頭型、臉（表情 / 配件）、髮型 */
+export const HEAD_OPTIONS = [['round', '圓臉'], ['oval', '鵝蛋臉'], ['square', '方臉'], ['wide', '寬臉']];
+export const FACE_OPTIONS = [['smile', '微笑'], ['happy', '笑瞇眼'], ['cool', '酷酷的'], ['sleepy', '睏睏'], ['blush', '害羞'], ['glasses', '眼鏡']];
+export const HAIR_OPTIONS = [['short', '短髮'], ['buzz', '平頭'], ['bob', '鮑伯頭'], ['long', '長髮'], ['ponytail', '馬尾'], ['bun', '包子頭'], ['curly', '捲髮'], ['spiky', '刺蝟頭'], ['bald', '光頭']];
+export const STYLE_OPTIONS = { head: HEAD_OPTIONS, face: FACE_OPTIONS, hairStyle: HAIR_OPTIONS };
+export const STYLE_LABELS = { head: '頭型', face: '臉', hairStyle: '髮型' };
+const STYLE_DEFAULTS = { head: 'round', face: 'smile', hairStyle: 'short' };
+
 const DEFAULTS = { skin: '#d2a984', pants: '#2f3236', hair: '#241912' };
 const CLOTHES = ['#5b4636', '#3f4f48', '#44465a', '#5d4343', '#51493a'];
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -23,7 +31,8 @@ export const hashShirt = (id = '') => {
 export function sanitizeOutfit(o) {
   if (!o || typeof o !== 'object') return null;
   const pick = (k) => (typeof o[k] === 'string' && HEX.test(o[k]) ? o[k].toLowerCase() : null);
-  const out = { skin: pick('skin'), shirt: pick('shirt'), pants: pick('pants'), hair: pick('hair') };
+  const opt = (k) => (STYLE_OPTIONS[k].some(([id]) => id === o[k]) ? o[k] : null);
+  const out = { skin: pick('skin'), shirt: pick('shirt'), pants: pick('pants'), hair: pick('hair'), head: opt('head'), face: opt('face'), hairStyle: opt('hairStyle') };
   return Object.values(out).some(Boolean) ? out : null;
 }
 
@@ -35,7 +44,10 @@ export function resolveOutfit(o, id) {
     shirt: s?.shirt ?? hashShirt(id),
     pants: s?.pants ?? DEFAULTS.pants,
     hair: s?.hair ?? DEFAULTS.hair,
-    custom: !!s,
+    head: s?.head ?? STYLE_DEFAULTS.head,
+    face: s?.face ?? STYLE_DEFAULTS.face,
+    hairStyle: s?.hairStyle ?? STYLE_DEFAULTS.hairStyle,
+    custom: !!(s && (s.skin || s.shirt || s.pants || s.hair)),
   };
 }
 
