@@ -25,10 +25,12 @@ function CameraRig({ mode, tree, resetKey, selfRef, showMe, seats, currentUserId
   const controls = useThree((s) => s.controls);
   const camera = useThree((s) => s.camera);
   const first = useRef(true);
+  const snap = useRef(true);
   useEffect(() => {
     if (first.current) { first.current = false; return; }
     camera.position.set(...HOME.cam);
     if (controls) { controls.target.set(...HOME.target); controls.update(); }
+    snap.current = true; // 回中央後，如果是跟隨模式會立刻回到自己身上
   }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useFrame(() => {
@@ -41,7 +43,9 @@ function CameraRig({ mode, tree, resetKey, selfRef, showMe, seats, currentUserId
         if (seat) { sx = seat.pos_x; sz = seat.pos_z; }
       }
       if (sx !== undefined) {
-        const dx = (sx - t.x) * 0.08; const dz = (sz - t.z) * 0.08;
+        const k = snap.current ? 1 : 0.08; // 剛進場時直接把視角中心放到自己身上
+        snap.current = false;
+        const dx = (sx - t.x) * k; const dz = (sz - t.z) * k;
         t.x += dx; t.z += dz; camera.position.x += dx; camera.position.z += dz;
       }
     }
@@ -101,7 +105,7 @@ export default function CafeScene({
   const palette = useMemo(() => makePalette({ ...theme.palette, furniture: theme.furniture ?? null }), [theme]);
 
   const tree = theme.decor === 'tree';
-  const [camMode, setCamMode] = useState('free'); // free | follow
+  const [camMode, setCamMode] = useState('follow'); // follow（預設：視角中心跟著自己的角色）| free
   const [resetKey, setResetKey] = useState(0);
   const pill = (on) => `rounded-full px-3 py-1.5 text-xs font-medium transition ${on ? 'bg-amber-500 text-stone-900' : 'text-stone-200 hover:bg-stone-700'}`;
 
@@ -159,9 +163,9 @@ export default function CafeScene({
         <div className="flex items-center gap-0.5 rounded-full bg-stone-900/85 p-1 ring-1 ring-stone-700" role="group" aria-label="視角">
           <button type="button" onClick={() => setCamMode('free')} className={pill(camMode === 'free')} aria-pressed={camMode === 'free'}>自由移動</button>
           <button type="button" onClick={() => setCamMode('follow')} className={pill(camMode === 'follow')} aria-pressed={camMode === 'follow'}>跟隨我</button>
-          <button type="button" onClick={() => { setCamMode('free'); setResetKey((k) => k + 1); }} className={pill(false)}>回中央</button>
+          <button type="button" onClick={() => setResetKey((k) => k + 1)} className={pill(false)}>重設視角</button>
         </div>
-        {camMode === 'free' && <p className="rounded-lg bg-stone-900/70 px-2 py-1 text-[10px] text-stone-400">拖曳旋轉・滾輪縮放・右鍵 / 雙指拖曳平移</p>}
+        <p className="rounded-lg bg-stone-900/70 px-2 py-1 text-[10px] text-stone-400">{camMode === 'follow' ? '視角中心會跟著你的角色・拖曳旋轉・滾輪縮放' : '拖曳旋轉・滾輪縮放・右鍵 / 雙指拖曳平移'}</p>
       </div>
     </div>
   );

@@ -300,6 +300,7 @@ export function useCafeTextures(theme) {
     slats: make(256, 256, (g, W, H) => drawSlats(g, W, H, theme.sideWall), [17.5, 6.5]),
     marble: make(256, 256, (g, W, H) => drawMarble(g, W, H, !!theme.light)),
     dusk: make(256, 256, drawSky(theme.sky)),
+    sea: theme.glassWall ? make(1024, 296, drawSky(theme.sky)) : null, // 落地窗用的寬幅全景
     menu: make(512, 256, drawMenu),
     art: [0, 1, 2].map((v) => make(256, 320, drawArt(v))),
   // eslint-disable-next-line react-hooks/exhaustive-deps
