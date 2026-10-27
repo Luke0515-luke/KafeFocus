@@ -68,11 +68,29 @@ alter table public.study_rewards add constraint study_rewards_kind_check
 create or replace function public.study_level(p_xp numeric) returns int
 language sql immutable as $$ select floor(power(greatest(p_xp, 0) / 50.0, 2.0 / 3.0) + 1e-9)::int + 1 $$;
 
+-- 每日統計（匿名）：只記「哪一天讀了幾分鐘、完成幾個區塊」，不含任何項目名稱。
+-- 連勝、徽章、每日經驗上限都改用這張表，所以完成的項目可以放心刪除而不影響進度。
+create table if not exists public.study_daily (
+  user_id  uuid not null references auth.users(id) on delete cascade,
+  day      date not null,
+  minutes  int  not null default 0,
+  sessions int  not null default 0,
+  primary key (user_id, day)
+);
+-- 把既有已完成的區塊彙整進來（只在這張表還是空的時候做一次）
+insert into public.study_daily (user_id, day, minutes, sessions)
+select user_id, completed_on, sum(minutes), count(*) from public.study_sessions
+where done and completed_on is not null
+  and not exists (select 1 from public.study_daily)
+group by user_id, completed_on
+on conflict do nothing;
+
 -- 5. RLS
 alter table public.study_items    enable row level security;
 alter table public.study_sessions enable row level security;
 alter table public.study_prefs    enable row level security;
 alter table public.study_rewards  enable row level security;
+alter table public.study_daily    enable row level security;
 
 drop policy if exists "own items all" on public.study_items;
 create policy "own items all" on public.study_items for all to authenticated
@@ -85,6 +103,9 @@ create policy "own sessions select" on public.study_sessions for select to authe
 drop policy if exists "own prefs all" on public.study_prefs;
 create policy "own prefs all" on public.study_prefs for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+drop policy if exists "own daily select" on public.study_daily;
+create policy "own daily select" on public.study_daily for select to authenticated using (user_id = auth.uid());
 
 drop policy if exists "own rewards select" on public.study_rewards;
 create policy "own rewards select" on public.study_rewards for select to authenticated using (user_id = auth.uid());
@@ -116,7 +137,7 @@ declare
   s public.study_sessions; it public.study_items;
   v_prior int; v_eff int; v_xp int; v_n int; v_streak int := 0; d date;
   v_bonus jsonb := '[]'::jsonb; v_total int; v_prev int; v_mins bigint; v_done_cnt int; r record;
-  v_cur bigint; v_lv int; v_jump int;
+  v_cur bigint; v_lv int; v_jump int; v_finished boolean := false;
 begin
   if v_uid is null then raise exception 'not_authenticated'; end if;
   if p_today is null or abs(p_today - current_date) > 1 then raise exception 'bad_date'; end if;
@@ -126,6 +147,10 @@ begin
   select coalesce(sum(xp),0) into v_prev from public.study_rewards where user_id = v_uid;
 
   if not p_done then
+    if s.done and s.completed_on is not null then
+      update public.study_daily set minutes = greatest(0, minutes - s.minutes), sessions = greatest(0, sessions - 1)
+        where user_id = v_uid and day = s.completed_on;
+    end if;
     update public.study_sessions set done = false, completed_on = null, completed_at = null where id = s.id;
     delete from public.study_rewards where user_id = v_uid and session_id = s.id;
     select coalesce(sum(xp),0) into v_total from public.study_rewards where user_id = v_uid;
@@ -135,11 +160,11 @@ begin
   if s.plan_date > p_today then raise exception 'future_session'; end if;
 
   select * into it from public.study_items where id = s.item_id;
+  -- 每天最多 600 分鐘計入經驗值（防止灌水）：先讀今天已累計的分鐘，再把這個區塊記進去
+  select coalesce(sum(minutes),0) into v_prior from public.study_daily where user_id = v_uid and day = p_today;
   update public.study_sessions set done = true, completed_on = p_today, completed_at = now() where id = s.id;
-
-  -- 每天最多 600 分鐘計入經驗值（防止灌水）
-  select coalesce(sum(minutes),0) into v_prior from public.study_sessions
-    where user_id = v_uid and done and completed_on = p_today and id <> s.id;
+  insert into public.study_daily (user_id, day, minutes, sessions) values (v_uid, p_today, s.minutes, 1)
+    on conflict (user_id, day) do update set minutes = public.study_daily.minutes + excluded.minutes, sessions = public.study_daily.sessions + 1;
   v_eff := greatest(0, least(s.minutes, 600 - v_prior));
   v_xp  := round(v_eff * (1 + 0.25 * (coalesce(it.difficulty,1) - 1)));
   insert into public.study_rewards(user_id, session_id, item_id, kind, ref, label, xp)
@@ -149,12 +174,13 @@ begin
 
   -- 項目全部完成
   if not exists (select 1 from public.study_sessions where item_id = s.item_id and not done) then
+    v_finished := true;   -- 前端會在短暫的「可復原」時間後呼叫 purge_finished_items() 把完成的項目刪掉
     insert into public.study_rewards(user_id, session_id, item_id, kind, ref, label, xp)
-    values (v_uid, s.id, s.item_id, 'item_complete', s.item_id::text, '🏁 項目完成：' || coalesce(it.title,''), 50)
+    values (v_uid, s.id, s.item_id, 'item_complete', s.item_id::text, '🏁 完成一個讀書項目', 50)
     on conflict do nothing;
     get diagnostics v_n = row_count;
     if v_n > 0 then
-      v_bonus := v_bonus || jsonb_build_object('label', '🏁 項目完成：' || coalesce(it.title,''), 'xp', 50);
+      v_bonus := v_bonus || jsonb_build_object('label', '🏁 完成一個讀書項目', 'xp', 50);
       -- 完成者獎勵：補足經驗值，自動直升 1 級（下一個烘焙階段，或更高級的咖啡豆）
       select coalesce(sum(xp),0) into v_cur from public.study_rewards where user_id = v_uid;
       v_lv   := public.study_level(v_cur);
@@ -168,7 +194,7 @@ begin
   end if;
 
   -- 今日全勝
-  if (select count(*) from public.study_sessions where user_id = v_uid and plan_date = p_today) > 0
+  if coalesce((select sessions from public.study_daily where user_id = v_uid and day = p_today), 0) > 0
      and not exists (select 1 from public.study_sessions where user_id = v_uid and plan_date = p_today and not done) then
     insert into public.study_rewards(user_id, session_id, kind, ref, label, xp)
     values (v_uid, s.id, 'day_clear', p_today::text, '☀️ 今日計畫全數完成', 30) on conflict do nothing;
@@ -178,7 +204,7 @@ begin
 
   -- 連續天數
   d := p_today;
-  while v_streak < 400 and exists (select 1 from public.study_sessions where user_id = v_uid and done and completed_on = d) loop
+  while v_streak < 400 and exists (select 1 from public.study_daily where user_id = v_uid and day = d and sessions > 0) loop
     v_streak := v_streak + 1; d := d - 1;
   end loop;
   if v_streak in (3, 7, 14, 30, 60, 100) then
@@ -190,7 +216,7 @@ begin
   end if;
 
   -- 徽章
-  select coalesce(sum(minutes),0), count(*) into v_mins, v_done_cnt from public.study_sessions where user_id = v_uid and done;
+  select coalesce(sum(minutes),0), coalesce(sum(sessions),0) into v_mins, v_done_cnt from public.study_daily where user_id = v_uid;
   begin
     for r in select * from (values
       ('first_step', '🌱 初來乍到', v_done_cnt >= 1),
@@ -211,6 +237,7 @@ begin
   select coalesce(sum(xp),0) into v_total from public.study_rewards where user_id = v_uid;
   return jsonb_build_object(
     'xp_gained', v_xp, 'capped', v_eff < s.minutes, 'bonuses', v_bonus, 'streak', v_streak,
+    'item_finished', v_finished, 'item_id', s.item_id,
     'total_xp', v_total, 'level', public.study_level(v_total),
     'prev_level', public.study_level(v_prev));
 end $$;
@@ -255,14 +282,41 @@ begin
   select coalesce(jsonb_agg(label order by created_at), '[]'::jsonb) into v_badges
     from public.study_rewards where user_id = p_user_id and kind = 'badge';
   d := p_today;
-  if not exists (select 1 from public.study_sessions where user_id = p_user_id and done and completed_on = d) then d := d - 1; end if;
-  while v_streak < 400 and exists (select 1 from public.study_sessions where user_id = p_user_id and done and completed_on = d) loop
+  if not exists (select 1 from public.study_daily where user_id = p_user_id and day = d and sessions > 0) then d := d - 1; end if;
+  while v_streak < 400 and exists (select 1 from public.study_daily where user_id = p_user_id and day = d and sessions > 0) loop
     v_streak := v_streak + 1; d := d - 1;
   end loop;
   return jsonb_build_object('id', p.id, 'display_name', p.display_name, 'avatar_url', p.avatar_url,
     'total_minutes', v_total, 'today_minutes', v_today, 'week_minutes', v_week, 'xp', v_xp,
     'level', public.study_level(v_xp), 'streak', v_streak, 'badges', v_badges);
 end $$;
+
+-- 10. 完成的項目自動刪除：整個項目的區塊都完成後，把項目、區塊、行程名稱都從資料庫抹掉。
+-- 經驗值 / 連勝 / 徽章 / 讀書時間不受影響（它們不含項目名稱）。
+create or replace function public.purge_finished_items() returns int
+language plpgsql security definer set search_path = public as $$
+declare v_uid uuid := auth.uid(); v_ids uuid[]; v_n int := 0;
+begin
+  if v_uid is null then raise exception 'not_authenticated'; end if;
+  select coalesce(array_agg(i.id), '{}') into v_ids from public.study_items i
+   where i.user_id = v_uid
+     and exists (select 1 from public.study_sessions s where s.item_id = i.id)
+     and not exists (select 1 from public.study_sessions s where s.item_id = i.id and not s.done);
+  if array_length(v_ids, 1) is not null then
+    -- 專注紀錄裡的「正在讀什麼」也一併清掉（保留分鐘數）
+    update public.focus_logs set task = null
+      where user_id = v_uid and task is not null and task in (select left(title, 40) from public.study_items where id = any(v_ids));
+    delete from public.study_items where id = any(v_ids);   -- 區塊跟著連鎖刪除；獎勵的 item_id 會變成空值
+    get diagnostics v_n = row_count;
+  end if;
+  -- 舊版獎勵標籤可能含有項目名稱：一律改成通用文字
+  update public.study_rewards set label = '🏁 完成一個讀書項目'
+    where user_id = v_uid and kind = 'item_complete' and label <> '🏁 完成一個讀書項目';
+  return v_n;
+end $$;
+
+revoke execute on function public.purge_finished_items() from public, anon;
+grant  execute on function public.purge_finished_items() to authenticated;
 
 revoke execute on function public.replace_study_plan(jsonb)                       from public, anon;
 revoke execute on function public.complete_study_session(uuid,date,boolean)       from public, anon;
