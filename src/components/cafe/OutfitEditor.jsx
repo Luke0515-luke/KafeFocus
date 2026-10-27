@@ -1,21 +1,32 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
-import { OUTFIT_LABELS, SWATCHES, hashShirt, resolveOutfit } from '../../lib/outfit';
+import { OUTFIT_LABELS, STYLE_LABELS, STYLE_OPTIONS, SWATCHES, hashShirt, resolveOutfit } from '../../lib/outfit';
 
 /** 角色外觀：膚色、上衣、褲子、頭髮。點色塊立刻套用到場景裡的自己；最後一格可以用調色盤選任意顏色。 */
 export default function OutfitEditor({ userId, outfit, onChange }) {
   const [open, setOpen] = useState(false);
   const cur = resolveOutfit(outfit, userId);
-  const set = (key, value) => onChange({ skin: outfit?.skin ?? null, shirt: outfit?.shirt ?? null, pants: outfit?.pants ?? null, hair: outfit?.hair ?? null, [key]: value });
+  const set = (key, value) => onChange({ ...(outfit ?? {}), [key]: value });
 
   return (
     <div className="space-y-2 border-t border-stone-700 pt-3">
       <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between text-xs font-medium">
-        <span>角色外觀（膚色、衣服、褲子）</span>
+        <span>角色外觀（頭型、臉、髮型、顏色）</span>
         {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </button>
       {open && (
         <>
+          {Object.keys(STYLE_OPTIONS).map((key) => (
+            <div key={key} className="flex items-start gap-2">
+              <span className="w-9 shrink-0 pt-1 text-[11px] text-stone-400">{STYLE_LABELS[key]}</span>
+              <div className="flex flex-wrap gap-1">
+                {STYLE_OPTIONS[key].map(([id, label]) => (
+                  <button key={id} type="button" onClick={() => set(key, id)} aria-pressed={cur[key] === id}
+                    className={`rounded-full px-2 py-0.5 text-[11px] transition ${cur[key] === id ? 'bg-amber-500 text-stone-900' : 'bg-stone-800 text-stone-300 hover:bg-stone-700'}`}>{label}</button>
+                ))}
+              </div>
+            </div>
+          ))}
           {Object.keys(SWATCHES).map((key) => (
             <div key={key} className="flex items-center gap-2">
               <span className="w-9 shrink-0 text-[11px] text-stone-400">{OUTFIT_LABELS[key]}</span>
@@ -38,7 +49,7 @@ export default function OutfitEditor({ userId, outfit, onChange }) {
           <button type="button" onClick={() => onChange(null)} className="flex items-center gap-1 text-[11px] text-stone-400 hover:text-stone-200">
             <RotateCcw size={12} /> 還原預設
           </button>
-          <p className="text-[11px] text-stone-500">簡約人形會完整換色；Ready Player Me 角色會替換上衣、褲子並為皮膚、頭髮上色。</p>
+          <p className="text-[11px] text-stone-500">頭型、臉與髮型會同步給咖啡廳裡的其他人看到。</p>
         </>
       )}
     </div>

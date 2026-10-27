@@ -9,6 +9,7 @@ import { AvatarErrorBoundary } from './AvatarErrorBoundary';
 import { sanitizeAvatarUrl } from '../../lib/avatarUrl';
 import { openProfile } from '../../lib/openProfile';
 import { applyOutfitToRig, outfitKey, resolveOutfit } from '../../lib/outfit';
+import AvatarHead from './AvatarHead';
 
 const dampAngle = (cur, target, lambda, dt) => {
   let d = ((target - cur + Math.PI) % (Math.PI * 2)) - Math.PI;
@@ -83,15 +84,8 @@ function PlaceholderWalker({ motion, name, isSelf, bubble, dim = false, uid, out
         <capsuleGeometry args={[0.16, 0.3, 6, 14]} />
         <meshStandardMaterial color={o.shirt} {...mat} />
       </mesh>
-      {/* 頭與頭髮 */}
-      <mesh position={[0, 1.5, 0.01]} castShadow>
-        <sphereGeometry args={[0.11, 22, 18]} />
-        <meshStandardMaterial color={o.skin} {...mat} />
-      </mesh>
-      <mesh position={[0, 1.525, -0.005]} castShadow>
-        <sphereGeometry args={[0.118, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
-        <meshStandardMaterial color={o.hair} {...mat} />
-      </mesh>
+      {/* 頭（頭型 / 臉 / 髮型可自選） */}
+      <AvatarHead outfit={o} mat={mat} position={[0, 1.5, 0.01]} />
       {/* 雙臂：側面看得到，不會再「消失」 */}
       <Arm side={1} armRef={armL} foreRef={foreL} outfit={o} mat={mat} />
       <Arm side={-1} armRef={armR} foreRef={foreR} outfit={o} mat={mat} />

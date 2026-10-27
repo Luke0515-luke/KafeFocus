@@ -11,6 +11,7 @@ import { applySittingPose } from './sitPose';
 import { reachArm, setSwing, solveElbow } from './rigUtils';
 import { createSeatedState, stepActivity, SIT } from './seatedMotion';
 import SeatProps from './SeatProps';
+import AvatarHead from './AvatarHead';
 import SpeechBubble from './Bubble';
 import { effectiveStyle, seatHeight } from './layout';
 import { usePalette } from './palette';
@@ -128,15 +129,8 @@ function PlaceholderAvatar({ seat, isSelf, dim = false, bubble, st, style, outfi
           <capsuleGeometry args={[0.16, 0.26, 6, 14]} />
           <meshStandardMaterial color={o.shirt} {...mat} />
         </mesh>
-        {/* 頭與頭髮 */}
-        <mesh position={[0, 0.7, 0.01]} castShadow>
-          <sphereGeometry args={[0.11, 22, 18]} />
-          <meshStandardMaterial color={o.skin} {...mat} />
-        </mesh>
-        <mesh position={[0, 0.725, -0.005]} castShadow>
-          <sphereGeometry args={[0.118, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
-          <meshStandardMaterial color={o.hair} {...mat} />
-        </mesh>
+        {/* 頭（頭型 / 臉 / 髮型可自選） */}
+        <AvatarHead outfit={o} mat={mat} position={[0, 0.7, 0.01]} />
       </group>
       {/* 雙腿：大腿水平向前、小腿垂到地面（褲子顏色） */}
       {kneel && [-1, 1].map((sx) => (

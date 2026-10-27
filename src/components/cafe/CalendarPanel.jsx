@@ -31,7 +31,7 @@ export default function CalendarPanel({ userId, onClose }) {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const { eventsByDay, focusByDay, focusLogsByDay, focusMonthTotal, loading, error, addEvent, toggleDone, removeEvent } = useCalendar(userId, cursor.y, cursor.m);
+  const { eventsByDay, focusByDay, focusLogsByDay, focusMonthTotal, loading, error, addEvent, toggleDone, removeEvent, finishing, undoFinish } = useCalendar(userId, cursor.y, cursor.m);
   const grid = useMemo(() => buildGrid(cursor.y, cursor.m), [cursor]);
   const todayKey = dateKey(today);
   const dayEvents = eventsByDay[selected] ?? [];
@@ -143,8 +143,14 @@ export default function CalendarPanel({ userId, onClose }) {
             </div>
           )}
 
+          {finishing && (
+            <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-amber-900/40 px-3 py-2 text-xs text-amber-100 ring-1 ring-amber-600/50">
+              <span className="min-w-0 truncate">✅ 「{finishing.title}」已完成，6 秒後自動刪除。</span>
+              <button type="button" onClick={undoFinish} className="shrink-0 rounded bg-amber-600 px-2.5 py-1 font-medium text-white hover:bg-amber-500">復原</button>
+            </div>
+          )}
           <ul className="mb-3 min-h-[3rem] max-h-48 flex-1 space-y-1.5 overflow-y-auto md:max-h-none">
-            {dayEvents.length === 0 && <li className="text-sm text-stone-500">這天還沒有行程。</li>}
+            {dayEvents.length === 0 && <li className="text-sm text-stone-500">這天還沒有行程。打勾完成的行程會自動刪除，不留紀錄。</li>}
             {dayEvents.map((e) => (
               <li key={e.id} className="flex items-start gap-2 rounded-lg bg-stone-800 p-2">
                 <button
