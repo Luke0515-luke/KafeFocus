@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { dateKey, generatePlan, mergePrefs, toMin } from '../lib/scheduler';
 
 const COLORS = ['#f59e0b', '#10b981', '#0ea5e9', '#f43f5e', '#8b5cf6', '#14b8a6', '#f97316', '#ec4899'];
-const friendly = (m = '') => (/study_items|study_sessions|study_prefs|study_rewards|schema cache|does not exist|replace_study_plan/i.test(m)
+const friendly = (m = '') => (/study_items|study_sessions|study_prefs|study_rewards|study_daily|schema cache|does not exist|replace_study_plan|complete_study_session|purge_finished_items/i.test(m)
   ? '資料庫還沒有讀書計畫的資料表：請到 Supabase → SQL Editor 執行 study_planner.sql 一次。' : m);
 
 /** 讀書項目 / 自動排程 / 完成與獎勵。排程在瀏覽器算（src/lib/scheduler.js），寫入走 RPC。 */
@@ -35,7 +35,14 @@ export function useStudyPlan(userId) {
     return { items: it.data ?? [], prefs: mergePrefs(pr.data?.prefs) };
   }, []);
 
-  useEffect(() => { if (userId) load(); }, [userId, load]);
+  /** 把「全部完成」的項目從資料庫刪掉（RPC：purge_finished_items）。失敗（還沒更新 SQL）就靜靜略過。 */
+  const purge = useCallback(async () => {
+    const { data, error: err } = await supabase.rpc('purge_finished_items');
+    return err ? 0 : Number(data) || 0;
+  }, []);
+
+  // 開啟時先清掉上次沒來得及刪的已完成項目，再載入
+  useEffect(() => { if (userId) purge().finally(load); }, [userId, load, purge]);
 
   /** 抓最新資料 → 重新排程 → 取代所有「未完成」區塊（已完成的保留） */
   const regenerate = useCallback(async (override) => {
@@ -70,6 +77,12 @@ export function useStudyPlan(userId) {
     await regenerate();
   }), [wrap, regenerate, items.length]);
 
+  const updateItem = useCallback((id, patch) => wrap(async () => {
+    const { error: err } = await supabase.from('study_items').update(patch).eq('id', id);
+    if (err) throw new Error(err.message);
+    await regenerate();
+  }), [wrap, regenerate]);
+
   const removeItem = useCallback((id) => wrap(async () => {
     const { error: err } = await supabase.from('study_items').delete().eq('id', id);
     if (err) throw new Error(err.message);
@@ -99,5 +112,5 @@ export function useStudyPlan(userId) {
   const today = dateKey(new Date());
   const overdue = useMemo(() => sessions.filter((s) => !s.done && s.plan_date < today).length, [sessions, today]);
 
-  return { items, sessions, prefs, xp, loading, busy, error, warnings, overdue, addItem, removeItem, savePrefs, replan, complete };
+  return { items, sessions, prefs, xp, loading, busy, error, warnings, overdue, addItem, updateItem, removeItem, savePrefs, replan, complete, purge, reload: load };
 }
