@@ -156,6 +156,7 @@ export const THEMES = {
     backWall: { type: 'plaster', color: '#f3e8d6' },                  // 沙白色灰泥牆
     sideWall: { base: '#d6c2a2', slat: '#ecdcc0' },
     sky: 'sunset', trim: '#5e4838',
+    glassWall: true,                               // 後牆改成整面落地窗（CafeDecor.jsx 的 GlassWall）
     accent: '#2f7fa3',                             // 海藍色牆裙
     rugs: [['#9cc3d1', '#b7d6e0', '#7fa9ba'], ['#ead8b8', '#f4e6cb', '#d6c19c']],
     palette: {
