@@ -156,7 +156,6 @@ export const THEMES = {
     backWall: { type: 'plaster', color: '#f3e8d6' },                  // 沙白色灰泥牆
     sideWall: { base: '#d6c2a2', slat: '#ecdcc0' },
     sky: 'sunset', trim: '#5e4838',
-    glassWall: true,                               // 後牆改成整面落地窗（CafeDecor.jsx 的 GlassWall）
     accent: '#2f7fa3',                             // 海藍色牆裙
     rugs: [['#9cc3d1', '#b7d6e0', '#7fa9ba'], ['#ead8b8', '#f4e6cb', '#d6c19c']],
     palette: {
@@ -169,31 +168,6 @@ export const THEMES = {
     },
     features: { piano: false, records: false, hanging: 4, plants: 6 },
     preview: ['#f3e8d6', '#e88a5c'],
-  },
-  treehouse: {
-    id: 'treehouse',
-    decor: 'tree',                                  // 專屬場景：src/components/cafe/TreeDecor.jsx
-    bg: '#0d1a17', fog: [30, 70],
-    ambient: ['#a8f0c8', 0.6],
-    hemi: ['#c8ffd8', '#2a1c10', 0.65],
-    key: ['#ffe9b0', 0.7],                          // 從樹冠灑下來的陽光
-    lamp: ['#ffd27a', 1.2],
-    floor: ['#8a6a43', '#7e5f3b', '#94734a', '#755734', '#876840'],   // 樹屋的木頭平台
-    floorType: 'birch',
-    backWall: { type: 'plaster', color: '#3b2717' },
-    sideWall: { base: '#3b2717', slat: '#4a3220' },
-    sky: 'forest', trim: '#3d2815',
-    rugs: [['#3f6b3a', '#5b8a4c', '#2f5430'], ['#6a8f4a', '#86ad5e', '#4f7438']],   // 葉子地毯
-    palette: {
-      leathers: ['#3f6b3a', '#4f7f45', '#34582f', '#5d8f4e'],         // 青苔綠椅墊
-      chairWood: { color: '#5a3d22', roughness: 0.85 },
-      barBody: '#4a3320', barTop: '#7a5a38',
-      slab: '#6b4a2b', square: '#6f5030', low: '#4d3520',
-      counter: '#3d2a1a', sofa: '#3f6b3a', shade: '#ffe0a0',
-      orb: '#8be3b0', orbHover: '#c8ffe0',
-    },
-    features: { piano: false, records: false, hanging: 0, plants: 0 },
-    preview: ['#2f5430', '#ffd27a'],
   },
   forest: {
     id: 'forest',
@@ -208,6 +182,30 @@ export const THEMES = {
     sky: 'forest', trim: '#1c2a1e',
     features: { piano: false, records: false, hanging: 5, plants: 7 },
     preview: ['#16221a', '#5c7357'],
+  },
+  ocean: {
+    id: 'ocean',
+    bg: '#04141f', fog: [22, 46],                  // 深海的藍黑色水體
+    ambient: ['#6fc7ff', 0.5],
+    hemi: ['#7fd3ff', '#06202e', 0.55],
+    key: ['#9fe0ff', 0.7],                         // 從水面透下來的冷光
+    lamp: ['#6ff0e0', 1.2],                        // 生物發光的青綠色
+    floor: ['#1d3a4a', '#183343', '#22465a', '#14303f', '#1b3c4e'],
+    backWall: { type: 'plaster', color: '#0f3a52' },
+    sideWall: { base: '#071d2b', slat: '#14506a' },
+    sky: 'ocean', trim: '#06161f', decor: 'ocean',
+    accent: '#19b5c4',                             // 青色牆裙
+    rugs: [['#0e4a5c', '#16697c', '#0a2f3d'], ['#2a1f4d', '#3b2d6b', '#1a1233']],
+    palette: {
+      leathers: ['#127a8a', '#1a8fa0', '#0e6270', '#22a0b0'],
+      chairWood: { color: '#0f2a36', roughness: 0.4 },
+      barBody: '#0c2230', barTop: '#1d5a70',
+      slab: '#1d4a5c', square: '#1f5266', low: '#123544',
+      counter: '#0e3446', sofa: '#127a8a', shade: '#19b5c4',
+      orb: '#5ff0e0', orbHover: '#a8fff5',
+    },
+    features: { piano: false, records: false, hanging: 0, plants: 0 },
+    preview: ['#0f3a52', '#5ff0e0'],
   },
 };
 
@@ -244,13 +242,13 @@ export const CAFES = {
     theme: 'seaside', icon: 'Sunset', name: '夕照海岸咖啡館',
     blurb: '黃昏的海景落地窗，夕陽把海面染成金橘色。沙白牆、漂流木地板、藤編椅與海藍色椅墊，像在度假的海邊讀書。', tags: ['海景', '黃昏', '度假'],
   },
-  'treehouse-hollow': {
-    theme: 'treehouse', icon: 'TreeDeciduous', name: '精靈樹洞咖啡館',
-    blurb: '藏在一棵巨大空心樹幹裡的咖啡館，像奇妙仙子的樹洞世界：螺旋樹梯、圓形窗洞、發光的蘑菇、吊燈籠與漫天螢火蟲。可以自由移動視角逛整個樹洞。', tags: ['奇幻', '樹屋', '螢火蟲'],
-  },
   'forest-reading': {
     theme: 'forest', icon: 'Leaf', name: '森林書屋',
     blurb: '滿滿的綠植與書牆，像在森林裡安靜地讀書。', tags: ['綠意', '書香'],
+  },
+  'deep-sea': {
+    theme: 'ocean', icon: 'Waves', name: '深海水族咖啡館',
+    blurb: '像沉在海底的玻璃穹頂：頭上魚群游過、發光水母緩緩漂浮、氣泡一串串往上冒，地板晃著水波光影，窗外有鯨魚經過。', tags: ['深海', '療癒', '夜晚'],
   },
 };
 
