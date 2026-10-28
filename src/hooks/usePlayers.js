@@ -12,6 +12,9 @@ const MAX_MESSAGES = 80;
 const MAX_TEXT = 120;
 const CHAT_GAP_MS = 900;      // 兩則訊息最短間隔（防洗版）
 const SPAWN = { x: 2.5, z: 7.2 };
+export const REACTIONS = ['👍', '🔥', '☕', '📚', '💪', '🎉', '😴', '❤️'];   // 快速表情（只在頭上冒泡，不會進聊天記錄）
+const REACT_GAP_MS = 1200;
+const REACT_MS = 3000;
 
 const dampAngle = (cur, target, lambda, dt) => {
   let d = ((target - cur + Math.PI) % (Math.PI * 2)) - Math.PI;
@@ -172,6 +175,11 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
       setBubbles((prev) => ({ ...prev, [msg.uid]: { text, until: Date.now() + BUBBLE_MS } }));
     });
 
+    ch.on('broadcast', { event: 'react' }, ({ payload: p }) => {
+      if (!p || typeof p.uid !== 'string' || p.uid === userId || !REACTIONS.includes(p.e)) return;
+      setBubbles((prev) => ({ ...prev, [p.uid]: { text: p.e, until: Date.now() + REACT_MS, big: true } }));
+    });
+
     ch.subscribe((status) => { readyRef.current = status === 'SUBSCRIBED'; });
 
     // 定期清掉離開的人
@@ -288,8 +296,20 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
     return true;
   }, [userId]);
 
+  const lastReactAt = useRef(0);
+  /** 快速表情：自己頭上立刻冒泡 + 廣播給同一間咖啡廳的人 */
+  const sendReaction = useCallback((emoji) => {
+    if (!userId || !REACTIONS.includes(emoji)) return false;
+    const now = Date.now();
+    if (now - lastReactAt.current < REACT_GAP_MS) return false;
+    lastReactAt.current = now;
+    setBubbles((prev) => ({ ...prev, [userId]: { text: emoji, until: now + REACT_MS, big: true } }));
+    channelRef.current?.send({ type: 'broadcast', event: 'react', payload: { uid: userId, e: emoji } });
+    return true;
+  }, [userId]);
+
   // 所有人的外觀（含自己），給座位上與站著的角色用
   const outfits = useMemo(() => (userId ? { ...theirOutfits, [userId]: sanitizeOutfit(outfit) } : theirOutfits), [theirOutfits, userId, outfit]);
 
-  return { meRef, destRef, showMe: !mySeat && !!userId, others, messages, bubbles, outfits, walkTo, sitAt, sendChat };
+  return { meRef, destRef, showMe: !mySeat && !!userId, others, messages, bubbles, outfits, walkTo, sitAt, sendChat, sendReaction };
 }
