@@ -38,6 +38,7 @@ export function obstaclesFor(theme) {
     rect(-8.85, -8.35, 6.7, 8.5),    // 書櫃
   ];
   if (f.piano) o.push(rect(7.2, 8.8, -4.9, -4.2), circ(8.0, -3.55, 0.25));
+  if (theme.decor === 'ocean') o.push(rect(7.4, 8.6, -4.9, -3.75));   // 後牆右角的寶箱（OceanDecor）
   TABLES.forEach((t) => o.push(tableShape(t)));
   SEAT_LAYOUT.forEach((s) => {
     if (s.style === 'booth') o.push(rect(s.x - 0.65, s.x + 0.4, s.z - 0.62, s.z + 0.62));

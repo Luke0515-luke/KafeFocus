@@ -151,6 +151,7 @@ function drawSky(kind) {
       sakura: ['#f4cfd8', '#f0b9c7', '#d9a0ae'],
       snow: ['#cfdbe8', '#e6edf4', '#f6f8fb'],
       sunset: ['#5b5a9c', '#f09a78', '#ffd9a4'],
+      ocean: ['#04233a', '#0a5276', '#1b9bb0'],
     }[kind];
     grad.addColorStop(0, stops[0]);
     grad.addColorStop(0.6, stops[1]);
@@ -224,6 +225,40 @@ function drawSky(kind) {
         g.fill();
       }
       g.strokeStyle = '#5a3a2a'; g.lineWidth = 7; g.beginPath(); g.moveTo(0, H * 0.9); g.quadraticCurveTo(W * 0.4, H * 0.55, W, H * 0.35); g.stroke();
+    } else if (kind === 'ocean') {
+      // 深海：水面灑下的光束 + 一隻游過的鯨魚剪影 + 魚群、水母與氣泡
+      for (let i = 0; i < 6; i += 1) {
+        const x = rnd() * W; const w = 14 + rnd() * 26;
+        const ray = g.createLinearGradient(x, 0, x - 40, H);
+        ray.addColorStop(0, 'rgba(190,255,255,0.38)'); ray.addColorStop(1, 'rgba(190,255,255,0)');
+        g.fillStyle = ray;
+        g.beginPath(); g.moveTo(x, 0); g.lineTo(x + w, 0); g.lineTo(x + w - 70, H); g.lineTo(x - 70, H); g.closePath(); g.fill();
+      }
+      const wx = W * 0.5; const wy = H * 0.4;
+      g.fillStyle = 'rgba(5,28,46,0.88)';
+      g.beginPath(); g.ellipse(wx, wy, W * 0.2, H * 0.07, -0.08, 0, Math.PI * 2); g.fill();              // 身體
+      g.beginPath(); g.moveTo(wx + W * 0.17, wy - 2);                                                         // 尾鰭
+      g.quadraticCurveTo(wx + W * 0.26, wy - H * 0.08, wx + W * 0.31, wy - H * 0.13);
+      g.quadraticCurveTo(wx + W * 0.27, wy - H * 0.01, wx + W * 0.31, wy + H * 0.07);
+      g.quadraticCurveTo(wx + W * 0.24, wy + H * 0.02, wx + W * 0.17, wy + 3); g.fill();
+      g.beginPath(); g.moveTo(wx - W * 0.02, wy + H * 0.05);                                                  // 胸鰭
+      g.quadraticCurveTo(wx + W * 0.02, wy + H * 0.15, wx + W * 0.08, wy + H * 0.16);
+      g.quadraticCurveTo(wx + W * 0.06, wy + H * 0.09, wx + W * 0.06, wy + H * 0.05); g.fill();
+      for (let i = 0; i < 16; i += 1) {                                                                       // 小魚群
+        const fx = W * (0.05 + rnd() * 0.5); const fy = H * (0.55 + rnd() * 0.35); const s = 4 + rnd() * 4;
+        g.fillStyle = `rgba(255,${170 + Math.floor(rnd() * 60)},${90 + Math.floor(rnd() * 60)},0.85)`;
+        g.beginPath(); g.ellipse(fx, fy, s * 1.5, s * 0.7, 0, 0, Math.PI * 2); g.fill();
+        g.beginPath(); g.moveTo(fx - s * 1.3, fy); g.lineTo(fx - s * 2.4, fy - s * 0.8); g.lineTo(fx - s * 2.4, fy + s * 0.8); g.closePath(); g.fill();
+      }
+      for (let i = 0; i < 3; i += 1) {                                                                        // 水母
+        const jx = W * (0.62 + rnd() * 0.3); const jy = H * (0.52 + rnd() * 0.3); const r = 9 + rnd() * 8;
+        g.shadowColor = '#ff8fd0'; g.shadowBlur = 12; g.fillStyle = 'rgba(255,170,225,0.75)';
+        g.beginPath(); g.arc(jx, jy, r, Math.PI, 0); g.fill(); g.shadowBlur = 0;
+        g.strokeStyle = 'rgba(255,190,235,0.6)'; g.lineWidth = 1.4;
+        for (let k = -2; k <= 2; k += 1) { g.beginPath(); g.moveTo(jx + k * r * 0.35, jy); g.quadraticCurveTo(jx + k * r * 0.5 + 3, jy + r, jx + k * r * 0.3, jy + r * 1.9); g.stroke(); }
+      }
+      g.strokeStyle = 'rgba(210,255,255,0.55)'; g.lineWidth = 1.2;
+      for (let i = 0; i < 26; i += 1) { g.beginPath(); g.arc(rnd() * W, rnd() * H, 1.5 + rnd() * 4, 0, Math.PI * 2); g.stroke(); }
     } else if (kind === 'dusk' || kind === 'night') {
       for (let i = 0; i < 46; i += 1) {
         g.fillStyle = `rgba(255,${190 + Math.floor(rnd() * 50)},${120 + Math.floor(rnd() * 80)},${0.25 + rnd() * 0.5})`;
@@ -300,7 +335,6 @@ export function useCafeTextures(theme) {
     slats: make(256, 256, (g, W, H) => drawSlats(g, W, H, theme.sideWall), [17.5, 6.5]),
     marble: make(256, 256, (g, W, H) => drawMarble(g, W, H, !!theme.light)),
     dusk: make(256, 256, drawSky(theme.sky)),
-    sea: theme.glassWall ? make(1024, 296, drawSky(theme.sky)) : null, // 落地窗用的寬幅全景
     menu: make(512, 256, drawMenu),
     art: [0, 1, 2].map((v) => make(256, 320, drawArt(v))),
   // eslint-disable-next-line react-hooks/exhaustive-deps
