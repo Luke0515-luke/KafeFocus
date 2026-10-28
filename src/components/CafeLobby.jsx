@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Coffee, LogIn, MessagesSquare, Leaf, ListChecks, LogOut, Music, Store, Sun, Trophy, Users, Zap, Flower2, Snowflake, Sunset, Waves } from 'lucide-react';
+import { BarChart3, CalendarDays, Coffee, LogIn, MessagesSquare, Leaf, ListChecks, LogOut, Music, Store, Sun, Trophy, Users, Zap, Flower2, Snowflake, Sunset, TreeDeciduous, Waves } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { useLobbyPresence } from '../hooks/useLobbyPresence';
+import { lobbyStats } from '../lib/lobbyStats';
 import { CAFE_ORDER, getMeta, getTheme } from '../config/themes';
 import { beanInfo, fmtDuration, levelFromXp, levelStart } from '../lib/openProfile';
 import { Search, Shuffle } from 'lucide-react';
 
-const ICONS = { Coffee, Music, Sun, Leaf, Store, Zap, Flower2, Snowflake, Sunset, Waves };
+const ICONS = { Coffee, Music, Sun, Leaf, Store, Zap, Flower2, Snowflake, Sunset, TreeDeciduous, Waves };
 
 /** 首頁：列出所有咖啡廳，顯示即時人數，點選進入。 */
-export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOpenCalendar, onOpenPlanner, onOpenBoard, onOpenForum, onOpenCredits }) {
+export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOpenCalendar, onOpenStats, onOpenPlanner, onOpenBoard, onOpenForum, onOpenCredits }) {
   const userId = session?.user?.id ?? null; // 訪客 = null：可以逛，但不載入個人資料
   const [cafes, setCafes] = useState(null);
   const [counts, setCounts] = useState({});
@@ -49,32 +51,38 @@ export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOp
     return () => { alive = false; };
   }, [userId]);
 
-  // 每 15 秒更新各店人數（只抓兩個欄位，資料量很小）
+  // 資料庫端的座位資料：每間店有幾個座位、誰坐著（座位裡的人還要在 Presence 才算數，見 lobbyStats）
+  // 再加上心跳計數 cafe_seat_counts（只在 Presence 連不上時當備援）。每 8 秒更新一次，資料量很小。
   useEffect(() => {
     let alive = true;
     const load = async () => {
-      // 只算「真的還在」的人（最近有心跳），避免數到已斷線但座位還保留著的幽靈座位
-      const r = await supabase.rpc('cafe_seat_counts');
+      const [seatsRes, hbRes] = await Promise.all([
+        supabase.from('cafe_seats').select('cafe_id, occupant_id'),
+        supabase.rpc('cafe_seat_counts'),
+      ]);
       if (!alive) return;
       const m = {};
-      if (!r.error && r.data) {
-        r.data.forEach((x) => { m[x.cafe_id] = { total: Number(x.total), taken: Number(x.taken) }; });
-      } else {
-        // 還沒執行 lobby_counts_fix.sql：退回舊算法（可能數到幽靈座位）
-        const { data } = await supabase.from('cafe_seats').select('cafe_id, occupant_id');
-        if (!alive || !data) return;
-        data.forEach((x) => {
-          const e = (m[x.cafe_id] ||= { total: 0, taken: 0 });
-          e.total += 1;
-          if (x.occupant_id) e.taken += 1;
+      (seatsRes.data ?? []).forEach((x) => {
+        const e = (m[x.cafe_id] ||= { total: 0, occupants: [], heartbeatTaken: null });
+        e.total += 1;
+        if (x.occupant_id) e.occupants.push(x.occupant_id);
+      });
+      if (!hbRes.error && hbRes.data) {
+        hbRes.data.forEach((x) => {
+          const e = (m[x.cafe_id] ||= { total: Number(x.total), occupants: [], heartbeatTaken: null });
+          e.heartbeatTaken = Number(x.taken);
         });
       }
       setCounts(m);
     };
     load();
-    const id = setInterval(load, 15000);
+    const id = setInterval(load, 8000);
     return () => { alive = false; clearInterval(id); };
   }, []);
+
+  // 各店「真正在線」的人（Presence）：和進到咖啡廳裡看到的是同一份資料
+  const presence = useLobbyPresence(useMemo(() => (cafes ?? []).map((c) => c.id), [cafes]));
+  const statOf = (id) => lobbyStats(presence[id], counts[id]);
 
   const sorted = useMemo(() => {
     if (!cafes) return [];
@@ -85,17 +93,17 @@ export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOp
       const m = getMeta(c.slug);
       return `${c.name} ${m.name} ${m.blurb} ${(m.tags ?? []).join(' ')}`.toLowerCase().includes(kw);
     });
-    const taken = (c) => counts[c.id]?.taken ?? 0;
+    const taken = (c) => statOf(c.id).online;
     return list.sort((a, b) => {
       if (sortBy === 'quiet') return taken(a) - taken(b) || rank(a.slug) - rank(b.slug);
       if (sortBy === 'busy') return taken(b) - taken(a) || rank(a.slug) - rank(b.slug);
       return rank(a.slug) - rank(b.slug);
     });
-  }, [cafes, q, sortBy, counts]);
+  }, [cafes, q, sortBy, counts, presence]);
 
   // 隨機挑一間還有空位的咖啡廳
   const joinRandom = () => {
-    const open = (cafes ?? []).filter((c) => { const n = counts[c.id]; return !n || n.total === 0 || n.taken < n.total; });
+    const open = (cafes ?? []).filter((c) => { const n = statOf(c.id); return n.total === 0 || n.seated < n.total; });
     const pool = open.length ? open : cafes ?? [];
     if (pool.length) onSelect(pool[Math.floor(Math.random() * pool.length)].slug);
   };
@@ -121,6 +129,11 @@ export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOp
             <button type="button" onClick={onOpenCalendar} aria-label="行事曆" className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-sm hover:bg-stone-700">
               <CalendarDays size={16} /> <span className="max-sm:hidden">行事曆</span>
             </button>
+            {userId && (
+              <button type="button" onClick={onOpenStats} aria-label="專注統計" className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-sm hover:bg-stone-700">
+                <BarChart3 size={16} /> <span className="max-sm:hidden">統計</span>
+              </button>
+            )}
             {userId ? (
               <button type="button" onClick={onSignOut} className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-sm hover:bg-stone-700">
                 <LogOut size={16} /> <span className="max-sm:hidden">登出</span>
@@ -177,7 +190,7 @@ export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOp
             const meta = getMeta(cafe.slug);
             const theme = getTheme(cafe.slug);
             const Icon = ICONS[meta.icon] ?? Coffee;
-            const n = counts[cafe.id] ?? { total: 0, taken: 0 };
+            const n = statOf(cafe.id);
             return (
               <button
                 key={cafe.id} type="button" onClick={() => onSelect(cafe.slug)}
@@ -190,8 +203,8 @@ export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOp
                   <Icon size={30} className="text-white/85" />
                   <span className="flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-xs text-white">
                     <Users size={12} />
-                    <span className={`h-1.5 w-1.5 rounded-full ${n.taken > 0 ? 'bg-emerald-400' : 'bg-stone-400'}`} />
-                    {n.taken}/{n.total || '–'} 人在座
+                    <span className={`h-1.5 w-1.5 rounded-full ${n.online > 0 ? 'bg-emerald-400' : 'bg-stone-400'}`} />
+                    {n.online} 人在線 · {n.seated}/{n.total || '–'} 入座
                   </span>
                 </div>
                 <div className="p-4">
