@@ -7,6 +7,7 @@ import { PLANT_SPOTS } from './layout';
 import PianoPlayer from './PianoPlayer';
 import { usePalette } from './palette';
 import { NeonDecor, NordicDecor, ZenDecor, OceanDecor } from './ThemeDecor';
+import { TreeDecor } from './TreeDecor';
 
 const BLACK_METAL = { color: '#1b1b1d', roughness: 0.45, metalness: 0.7 };
 const BRASS = { color: '#a8844f', roughness: 0.35, metalness: 0.85 };
@@ -22,18 +23,22 @@ function Walls({ tex, theme }) {
   const trim = { color: theme.trim, roughness: 0.6 };
   return (
     <group>
-      <mesh position={[0, ROOM.h / 2, ROOM.z0]} receiveShadow>
-        <boxGeometry args={[width, ROOM.h, 0.2]} />
-        <meshStandardMaterial map={tex.back} roughness={0.95} />
-      </mesh>
+      {!theme.glassWall && (
+        <mesh position={[0, ROOM.h / 2, ROOM.z0]} receiveShadow>
+          <boxGeometry args={[width, ROOM.h, 0.2]} />
+          <meshStandardMaterial map={tex.back} roughness={0.95} />
+        </mesh>
+      )}
       <mesh position={[ROOM.x0, ROOM.h / 2, ROOM.z0 + depth / 2]} receiveShadow>
         <boxGeometry args={[0.2, ROOM.h, depth]} />
         <meshStandardMaterial map={tex.slats} roughness={0.8} />
       </mesh>
-      <mesh position={[0, 0.09, ROOM.z0 + 0.12]}>
-        <boxGeometry args={[width, 0.18, 0.06]} />
-        <meshStandardMaterial {...trim} />
-      </mesh>
+      {!theme.glassWall && (
+        <mesh position={[0, 0.09, ROOM.z0 + 0.12]}>
+          <boxGeometry args={[width, 0.18, 0.06]} />
+          <meshStandardMaterial {...trim} />
+        </mesh>
+      )}
       <mesh position={[ROOM.x0 + 0.12, 0.09, ROOM.z0 + depth / 2]}>
         <boxGeometry args={[0.06, 0.18, depth]} />
         <meshStandardMaterial {...trim} />
@@ -45,14 +50,18 @@ function Walls({ tex, theme }) {
       {theme.accent && (
         <>
           {/* 品牌色牆裙（後牆與左牆下半部）+ 白色壓條 */}
-          <mesh position={[0, 0.55, ROOM.z0 + 0.14]}>
-            <boxGeometry args={[width - 0.3, 1.0, 0.04]} />
-            <meshStandardMaterial color={theme.accent} roughness={0.55} />
-          </mesh>
-          <mesh position={[0, 1.07, ROOM.z0 + 0.15]}>
-            <boxGeometry args={[width - 0.3, 0.05, 0.07]} />
-            <meshStandardMaterial color="#f4f0e6" roughness={0.5} />
-          </mesh>
+          {!theme.glassWall && (
+            <>
+              <mesh position={[0, 0.55, ROOM.z0 + 0.14]}>
+                <boxGeometry args={[width - 0.3, 1.0, 0.04]} />
+                <meshStandardMaterial color={theme.accent} roughness={0.55} />
+              </mesh>
+              <mesh position={[0, 1.07, ROOM.z0 + 0.15]}>
+                <boxGeometry args={[width - 0.3, 0.05, 0.07]} />
+                <meshStandardMaterial color="#f4f0e6" roughness={0.5} />
+              </mesh>
+            </>
+          )}
           <mesh position={[ROOM.x0 + 0.14, 0.55, ROOM.z0 + depth / 2 + 0.1]}>
             <boxGeometry args={[0.04, 1.0, depth - 0.3]} />
             <meshStandardMaterial color={theme.accent} roughness={0.55} />
@@ -63,6 +72,47 @@ function Walls({ tex, theme }) {
           </mesh>
         </>
       )}
+    </group>
+  );
+}
+
+/** 落地窗（夕照海岸）：整面後牆從地板到天花板都是玻璃，外面是全景海景；白色窗框 + 一扇可拉開的玻璃門 */
+function GlassWall({ tex, theme }) {
+  const width = ROOM.x1 - ROOM.x0;
+  const posts = 9; // 8 片玻璃
+  const frame = { color: '#f4f0e6', roughness: 0.45 };
+  const z = ROOM.z0;
+  return (
+    <group>
+      <mesh position={[0, ROOM.h / 2, z - 0.02]}>
+        <planeGeometry args={[width, ROOM.h]} />
+        <meshBasicMaterial map={tex.sea} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, ROOM.h / 2, z + 0.03]}>
+        <planeGeometry args={[width, ROOM.h]} />
+        <meshStandardMaterial color="#ffd9b0" transparent opacity={0.07} roughness={0.05} metalness={0.2} depthWrite={false} />
+      </mesh>
+      {Array.from({ length: posts }, (_, i) => (
+        <mesh key={i} position={[ROOM.x0 + (i * width) / (posts - 1), ROOM.h / 2, z + 0.05]}>
+          <boxGeometry args={[0.1, ROOM.h, 0.14]} />
+          <meshStandardMaterial {...frame} />
+        </mesh>
+      ))}
+      {[0.1, 2.5, ROOM.h - 0.05].map((y) => (
+        <mesh key={y} position={[0, y, z + 0.05]}>
+          <boxGeometry args={[width, y > 2 && y < 3 ? 0.06 : 0.16, 0.14]} />
+          <meshStandardMaterial {...frame} />
+        </mesh>
+      ))}
+      {[3.8, 4.2].map((x) => (
+        <mesh key={x} position={[x, 1.1, z + 0.16]}>
+          <boxGeometry args={[0.03, 0.5, 0.03]} />
+          <meshStandardMaterial color="#9aa3a8" metalness={0.8} roughness={0.3} />
+        </mesh>
+      ))}
+      {/* 夕陽從落地窗灑進來的暖光 */}
+      <pointLight position={[3, 3.2, z + 1.5]} color="#ffb27a" intensity={14} distance={16} decay={2} />
+      <pointLight position={[-4, 3.2, z + 1.5]} color="#ffc18a" intensity={9} distance={14} decay={2} />
     </group>
   );
 }
@@ -454,6 +504,7 @@ export default function CafeDecor({ theme }) {
   const tex = useCafeTextures(theme);
   const f = theme.features;
   const dark = !theme.light;
+  const tree = theme.decor === 'tree'; // 樹屋：整間店在巨大的空心樹幹裡，不用方形牆壁與窗戶
   const custom = !!theme.decor; // 有專屬擺飾的主題（neon / zen）不使用通用的鋼琴、書櫃、植栽、吊燈
   return (
     <group>
@@ -462,11 +513,13 @@ export default function CafeDecor({ theme }) {
         <meshStandardMaterial map={tex.floor} roughness={0.55} metalness={0.05} />
       </mesh>
 
-      <Walls tex={tex} theme={theme} />
-      <Window position={[-2.2, 2.7, -4.88]} sky={tex.dusk} />
-      <Window position={[1.8, 2.7, -4.88]} sky={tex.dusk} />
-      <Window position={[5.2, 2.7, -4.88]} sky={tex.dusk} />
-      <Window position={[-8.88, 2.6, 3.0]} rotationY={Math.PI / 2} w={2.6} sky={tex.dusk} />
+      {!tree && <Walls tex={tex} theme={theme} />}
+      {!tree && !theme.glassWall && <Window position={[-2.2, 2.7, -4.88]} sky={tex.dusk} />}
+      {!tree && !theme.glassWall && <Window position={[1.8, 2.7, -4.88]} sky={tex.dusk} />}
+      {!tree && !theme.glassWall && <Window position={[5.2, 2.7, -4.88]} sky={tex.dusk} />}
+      {!tree && <Window position={[-8.88, 2.6, 3.0]} rotationY={Math.PI / 2} w={2.6} sky={tex.dusk} />}
+      {!tree && theme.glassWall && <GlassWall tex={tex} theme={theme} />}
+      {tree && <TreeDecor />}
       {!custom && <FairyLights theme={theme} />}
       {!custom && <WallClock position={[-0.2, 3.0, -4.84]} />}
       {!custom && <WallShelf position={[3.5, 4.35, -4.7]} length={5.5} />}
