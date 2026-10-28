@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, Send, X } from 'lucide-react';
 import { openProfile } from '../lib/openProfile';
+import { REACTIONS } from '../hooks/usePlayers';
 
 const isWide = () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
 
 /** 咖啡廳聊天室：訊息只在同一間咖啡廳的人之間即時傳送，不會存起來；說話時頭上也會冒出泡泡。 */
-export default function ChatPanel({ messages, myId, onSend, title, readOnly = false, onRequireAuth }) {
+export default function ChatPanel({ messages, myId, onSend, title, readOnly = false, onRequireAuth, onReact }) {
   const [open, setOpen] = useState(isWide);
   const [text, setText] = useState('');
   const [unread, setUnread] = useState(0);
@@ -55,13 +56,23 @@ export default function ChatPanel({ messages, myId, onSend, title, readOnly = fa
           <button type="button" onClick={onRequireAuth} className="w-full rounded-lg bg-stone-800 py-2 text-sm text-amber-200 hover:bg-stone-700">登入 / 註冊後才能發言</button>
         </div>
       ) : (
-      <form onSubmit={submit} className="flex gap-2 border-t border-stone-700 p-2">
+      <>
+      {onReact && (
+        <div className="flex items-center justify-between gap-1 border-t border-stone-700 px-2 pt-2" aria-label="快速表情">
+          {REACTIONS.map((e) => (
+            <button key={e} type="button" onClick={() => onReact(e)} aria-label={`送出 ${e}`}
+              className="grid h-8 w-8 place-items-center rounded-lg text-lg transition hover:scale-110 hover:bg-stone-800 active:scale-95">{e}</button>
+          ))}
+        </div>
+      )}
+      <form onSubmit={submit} className={`flex gap-2 p-2 ${onReact ? '' : 'border-t border-stone-700'}`}>
         <input
           value={text} onChange={(e) => setText(e.target.value)} maxLength={120} placeholder="說點什麼…" enterKeyHint="send"
           className="min-w-0 flex-1 rounded-lg border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-amber-500"
         />
         <button disabled={!text.trim()} aria-label="送出" className="grid w-10 place-items-center rounded-lg bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-40"><Send size={16} /></button>
       </form>
+      </>
       )}
     </div>
   );

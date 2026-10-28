@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Coffee, LogIn, MessagesSquare, Leaf, ListChecks, LogOut, Music, Store, Sun, Trophy, Users, Zap, Flower2, Snowflake, Sunset, TreeDeciduous } from 'lucide-react';
+import { BarChart3, CalendarDays, Coffee, LogIn, MessagesSquare, Leaf, ListChecks, LogOut, Music, Store, Sun, Trophy, Users, Zap, Flower2, Snowflake, Sunset, TreeDeciduous } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useLobbyPresence } from '../hooks/useLobbyPresence';
 import { lobbyStats } from '../lib/lobbyStats';
@@ -10,7 +10,7 @@ import { Search, Shuffle } from 'lucide-react';
 const ICONS = { Coffee, Music, Sun, Leaf, Store, Zap, Flower2, Snowflake, Sunset, TreeDeciduous };
 
 /** 首頁：列出所有咖啡廳，顯示即時人數，點選進入。 */
-export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOpenCalendar, onOpenPlanner, onOpenBoard, onOpenForum, onOpenCredits }) {
+export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOpenCalendar, onOpenStats, onOpenPlanner, onOpenBoard, onOpenForum, onOpenCredits }) {
   const userId = session?.user?.id ?? null; // 訪客 = null：可以逛，但不載入個人資料
   const [cafes, setCafes] = useState(null);
   const [counts, setCounts] = useState({});
@@ -129,6 +129,11 @@ export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOp
             <button type="button" onClick={onOpenCalendar} aria-label="行事曆" className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-sm hover:bg-stone-700">
               <CalendarDays size={16} /> <span className="max-sm:hidden">行事曆</span>
             </button>
+            {userId && (
+              <button type="button" onClick={onOpenStats} aria-label="專注統計" className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-sm hover:bg-stone-700">
+                <BarChart3 size={16} /> <span className="max-sm:hidden">統計</span>
+              </button>
+            )}
             {userId ? (
               <button type="button" onClick={onSignOut} className="flex items-center gap-1.5 rounded-lg bg-stone-800 px-3 py-2 text-sm hover:bg-stone-700">
                 <LogOut size={16} /> <span className="max-sm:hidden">登出</span>
