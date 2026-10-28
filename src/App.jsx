@@ -8,6 +8,9 @@ import CalendarPanel from './components/CalendarPanel';
 import PlannerPanel from './components/PlannerPanel';
 import { LeaderboardPanel, UserCard } from './components/SocialPanels';
 import ChatPanel from './components/ChatPanel';
+import StatsPanel from './components/StatsPanel';
+import AmbientMixer from './components/AmbientMixer';
+import { useFocusStats } from './hooks/useFocusStats';
 import MusicPlayer from './components/MusicPlayer';
 const CafeScene = lazy(() => import('./components/cafe/CafeScene')); // 3D 引擎很大：進咖啡廳才下載，大廳秒開
 import ControlPanel from './components/cafe/ControlPanel';
@@ -39,9 +42,11 @@ function useCafeRoute() {
   return [slug, go];
 }
 
-function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, onOpenCalendar, onOpenPlanner, onOpenBoard, onOpenForum }) {
+function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, onOpenCalendar, onOpenPlanner, onOpenBoard, onOpenForum, onOpenStats }) {
   const userId = session?.user?.id ?? null; // null = 訪客（只能看，不能入座 / 聊天）
   const isGuest = !userId;
+  const stats = useFocusStats(userId);
+  const statsReload = stats.reload;
   const theme = getTheme(slug);
   const [cafe, setCafe] = useState(undefined); // undefined 讀取中 / null 找不到
   const [profile, setProfile] = useState(null);
@@ -90,6 +95,7 @@ function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, o
   const handleFocusLogged = useCallback(async ({ minutes, task } = {}) => {
     const base = minutes ? `✅ 已記錄專注 ${minutes} 分鐘${task ? `（${task}）` : ''}` : '';
     if (base) setToast(base);
+    statsReload(); // 更新今日進度 / 連續天數
     const id = linkedRef.current;
     if (!id) return;
     linkedRef.current = null;
@@ -100,7 +106,17 @@ function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, o
     const bonus = (data.bonuses ?? []).map((b) => `${b.label} +${b.xp}`).join('、');
     setToast(`${base ? `${base}　` : ''}✅ 計畫區塊完成　+${data.xp_gained} XP${bonus ? `　${bonus}` : ''}${data.level > data.prev_level ? `　🎉 升級 Lv.${data.level} ${beanInfo(data.level).emoji}${beanInfo(data.level).full}` : ''}`);
     loadPlan();
-  }, [loadPlan]);
+  }, [loadPlan, statsReload]);
+
+  // 今日目標第一次達成時，慶祝一下（第一次載入、或自己改目標造成的變化不算）
+  const goalSeen = useRef(null);
+  const goalRef = useRef(null);
+  useEffect(() => {
+    if (!stats.loaded) return;
+    const { reached, goal } = stats.summary;
+    if (goalSeen.current !== null && goalRef.current === goal && reached && !goalSeen.current) setToast(`🎉 今日 ${goal} 分鐘目標達成！`);
+    goalSeen.current = reached; goalRef.current = goal;
+  }, [stats.loaded, stats.summary.reached, stats.summary.goal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFocusError = useCallback((msg) => {
     setToast(`⚠️ 專注紀錄寫入失敗（${msg}）。資料庫端仍會自動補記，請稍後到行事曆確認。`);
@@ -217,11 +233,14 @@ function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, o
         planToday={planToday}
         onFocusPlan={(id) => { linkedRef.current = id; savePendingPlan(id, userId); }}
         onEndFocus={handleEndFocus}
+        stats={isGuest ? null : stats.summary}
+        onOpenStats={onOpenStats}
       />
       {toast && <div className="pointer-events-none absolute left-1/2 top-4 z-40 max-w-[92vw] -translate-x-1/2 rounded-xl bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-stone-950 shadow-xl">{toast}</div>}
       <ChatPanel
         title={userName ?? '訪客'} messages={players.messages} myId={userId} onSend={players.sendChat}
         readOnly={isGuest} onRequireAuth={() => onRequireAuth('聊天要先登入／註冊，登入後就能和大家說話。')}
+        onReact={isGuest ? undefined : players.sendReaction}
       />
       {(cafe === undefined || loading) && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center text-amber-100">載入咖啡廳中…</div>
@@ -233,6 +252,7 @@ function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, o
 function Main({ session }) {
   const [slug, go] = useCafeRoute();
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [plannerOpen, setPlannerOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
   const [forumOpen, setForumOpen] = useState(false);
@@ -255,10 +275,11 @@ function Main({ session }) {
       else if (boardOpen) setBoardOpen(false);
       else if (plannerOpen) setPlannerOpen(false);
       else if (calendarOpen) setCalendarOpen(false);
+      else if (statsOpen) setStatsOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [authHint, creditsOpen, profileId, forumOpen, boardOpen, plannerOpen, calendarOpen]);
+  }, [authHint, creditsOpen, profileId, forumOpen, boardOpen, plannerOpen, calendarOpen, statsOpen]);
   const signOut = useCallback(async () => { await supabase.auth.signOut(); }, []);
   const requireAuth = useCallback((hint = '') => setAuthHint(hint || '登入後就能使用完整功能。'), []);
   useEffect(() => { if (session) setAuthHint(null); }, [session]); // 登入成功 → 自動關掉視窗
@@ -266,6 +287,10 @@ function Main({ session }) {
   const openCalendar = useCallback(() => {
     if (!session) { requireAuth('新增行程需要先登入／註冊，註冊只要一分鐘。'); return; }
     setCalendarOpen(true);
+  }, [session, requireAuth]);
+  const openStats = useCallback(() => {
+    if (!session) { requireAuth('專注統計需要先登入／註冊，註冊只要一分鐘。'); return; }
+    setStatsOpen(true);
   }, [session, requireAuth]);
   const openPlanner = useCallback(() => {
     if (!session) { requireAuth('排讀書計畫需要先登入／註冊，註冊只要一分鐘。'); return; }
@@ -277,10 +302,11 @@ function Main({ session }) {
   return (
     <>
       {slug ? (
-        <CafeRoom key={slug} slug={slug} session={session} onBack={() => go(null)} onSignOut={signOut} onSignIn={signIn} onRequireAuth={requireAuth} onOpenCalendar={openCalendar} onOpenPlanner={openPlanner} onOpenBoard={() => setBoardOpen(true)} onOpenForum={openForum} />
+        <CafeRoom key={slug} slug={slug} session={session} onBack={() => go(null)} onSignOut={signOut} onSignIn={signIn} onRequireAuth={requireAuth} onOpenCalendar={openCalendar} onOpenPlanner={openPlanner} onOpenBoard={() => setBoardOpen(true)} onOpenForum={openForum} onOpenStats={openStats} />
       ) : (
-        <CafeLobby onOpenCredits={() => setCreditsOpen(true)} session={session} onSelect={go} onSignOut={signOut} onSignIn={signIn} onOpenCalendar={openCalendar} onOpenPlanner={openPlanner} onOpenBoard={() => setBoardOpen(true)} onOpenForum={openForum} />
+        <CafeLobby onOpenCredits={() => setCreditsOpen(true)} session={session} onSelect={go} onSignOut={signOut} onSignIn={signIn} onOpenCalendar={openCalendar} onOpenPlanner={openPlanner} onOpenBoard={() => setBoardOpen(true)} onOpenForum={openForum} onOpenStats={openStats} />
       )}
+      {statsOpen && session && <StatsPanel userId={session.user.id} onClose={() => setStatsOpen(false)} />}
       {calendarOpen && session && <CalendarPanel userId={session.user.id} onClose={() => setCalendarOpen(false)} />}
       {plannerOpen && session && <PlannerPanel userId={session.user.id} onClose={() => setPlannerOpen(false)} />}
       {boardOpen && <LeaderboardPanel myId={session?.user?.id ?? null} onClose={() => setBoardOpen(false)} />}
@@ -298,6 +324,7 @@ export default function App() {
     <>
       <AuthGate>{(session) => <Main session={session} />}</AuthGate> {/* session 為 null = 訪客，可瀏覽 */}
       <MusicPlayer music={music} />
+      <AmbientMixer />
     </>
   );
 }
