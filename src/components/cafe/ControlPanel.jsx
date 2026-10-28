@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, CalendarDays, Flag, ChevronDown, ChevronUp, Coffee, ListChecks, LogIn, LogOut, MessagesSquare, Trophy, Users, Wifi, WifiOff } from 'lucide-react';
+import { ArrowLeft, BarChart3, BookOpen, CalendarDays, Flag, Repeat, ChevronDown, ChevronUp, Coffee, ListChecks, LogIn, LogOut, MessagesSquare, Trophy, Users, Wifi, WifiOff } from 'lucide-react';
 import { formatMMSS, useCountdown } from '../../hooks/useCountdown';
 import { sanitizeAvatarUrl } from '../../lib/avatarUrl';
 import OutfitEditor from './OutfitEditor';
@@ -7,6 +7,10 @@ import OutfitEditor from './OutfitEditor';
 const FOCUS_KEY = 'kf_focus_min';
 const BREAK_KEY = 'kf_break_min';
 const PRESETS = [[25, 5], [50, 10], [90, 15]];
+const AUTO_KEY = 'kf_auto_cycle';
+const LONG_BREAK_EVERY = 4;       // 每 4 輪專注，下一次休息改成長休息
+const AUTO_DELAY_MS = 2000;       // 等一下再自動切換，讓這一輪的專注紀錄先寫入
+const AUTO_MAX_LATE_MS = 120000;  // 結束超過 2 分鐘才回來（人不在）就不自動開始下一輪
 
 const lsGet = (k, d) => { try { const v = Number(window.localStorage.getItem(k)); return Number.isFinite(v) && v > 0 ? v : d; } catch { return d; } };
 const lsSet = (k, v) => { try { window.localStorage.setItem(k, String(v)); } catch { /* 忽略 */ } };
@@ -20,7 +24,7 @@ const clampMin = (v, fallback) => Math.min(120, Math.max(1, Math.round(Number(v)
 export default function ControlPanel({
   cafeName, profile, mySeat, connection, onlineCount, notice, userId, outfit, onOutfitChange,
   onSetStatus, onLeave, onSaveAvatar, onBack, onSignOut, onOpenCalendar, onOpenPlanner, onOpenBoard,
-  planToday = [], onFocusPlan, onEndFocus, isGuest = false, onSignIn, onOpenForum,
+  planToday = [], onFocusPlan, onEndFocus, isGuest = false, onSignIn, onOpenForum, stats, onOpenStats,
 }) {
   const [task, setTask] = useState('');
   const [focusMin, setFocusMin] = useState(() => lsGet(FOCUS_KEY, 25));
@@ -31,6 +35,11 @@ export default function ControlPanel({
   const [open, setOpen] = useState(isWide);
   const remaining = useCountdown(mySeat?.phase_ends_at);
   const [planId, setPlanId] = useState(null);
+  const [auto, setAuto] = useState(() => { try { return window.localStorage.getItem(AUTO_KEY) === '1'; } catch { return false; } });
+  const [rounds, setRounds] = useState(0);
+  const roundsRef = useRef(0);
+  const autoDoneRef = useRef(null);
+  const autoActRef = useRef({});
 
   // 分頁標題顯示倒數；時間到時響一聲提示音
   useEffect(() => {
@@ -93,9 +102,10 @@ export default function ControlPanel({
   const timeUp = studying && remaining === 0;
 
   const collapseOnPhone = () => { if (!isWide()) setOpen(false); };
-  const startFocus = () => run(async () => {
-    try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch { /* 忽略 */ }
-    onFocusPlan?.(planId);
+  const startFocus = (fromAuto = false) => run(async () => {
+    try { if (!fromAuto && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch { /* 忽略 */ }
+    if (fromAuto) setPlanId(null); // 自動接續的下一輪不綁定計畫區塊
+    onFocusPlan?.(fromAuto ? null : planId);
     await onSetStatus('studying', task, clampMin(focusMin, 25) * 60);
     collapseOnPhone();
   });
@@ -103,7 +113,34 @@ export default function ControlPanel({
     setPlanId(s.id); setTask(s.title.slice(0, 40));
     setMinutes('focus', Math.min(120, s.minutes));
   };
-  const startBreak = () => run(async () => { await onSetStatus('break', '', clampMin(breakMin, 5) * 60); collapseOnPhone(); });
+  const startBreak = (minutes) => run(async () => { await onSetStatus('break', '', clampMin(typeof minutes === 'number' ? minutes : breakMin, 5) * 60); collapseOnPhone(); });
+
+  // ---- 自動番茄循環：專注結束 → 自動休息（每 4 輪長休息）→ 休息結束 → 自動下一輪專注 ----
+  autoActRef.current = { startBreak, startFocus, breakMin };
+  useEffect(() => {
+    if (!auto || !mySeat?.phase_ends_at || remaining !== 0) return undefined;
+    const key = mySeat.phase_ends_at;
+    if (autoDoneRef.current === key) return undefined;
+    if (Date.now() - new Date(key).getTime() > AUTO_MAX_LATE_MS) { autoDoneRef.current = key; return undefined; }
+    const status = mySeat.status;
+    const t = setTimeout(() => {
+      autoDoneRef.current = key;
+      const act = autoActRef.current;
+      if (status === 'studying') {
+        roundsRef.current += 1; setRounds(roundsRef.current);
+        const long = roundsRef.current % LONG_BREAK_EVERY === 0;
+        act.startBreak(long ? Math.min(120, Math.max(15, act.breakMin * 3)) : act.breakMin);
+      } else if (status === 'break') {
+        act.startFocus(true);
+      }
+    }, AUTO_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [auto, remaining, mySeat?.phase_ends_at, mySeat?.status]);
+  const toggleAuto = () => {
+    const v = !auto; setAuto(v);
+    try { window.localStorage.setItem(AUTO_KEY, v ? '1' : '0'); } catch { /* 忽略 */ }
+    if (!v) { roundsRef.current = 0; setRounds(0); }
+  };
 
   const saveAvatar = () => run(async () => {
     const trimmed = avatarInput.trim();
@@ -179,7 +216,25 @@ export default function ControlPanel({
             </button>
           ))}
         </div>
+        <button type="button" onClick={toggleAuto} aria-pressed={auto}
+          title="專注結束自動開始休息、休息結束自動開始下一輪；每 4 輪專注後休息 3 倍時間（至少 15 分鐘）"
+          className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-xs ring-1 transition ${auto ? 'bg-amber-600/20 text-amber-200 ring-amber-600' : 'bg-stone-800 text-stone-400 ring-stone-700 hover:bg-stone-700'}`}>
+          <span className="flex items-center gap-1.5"><Repeat size={13} /> 自動接續（專注 ⇄ 休息）</span>
+          <span>{auto ? `開${rounds > 0 ? ` · 已完成 ${rounds} 輪` : ''}` : '關'}</span>
+        </button>
       </div>
+
+      {stats && !isGuest && (
+        <button type="button" onClick={onOpenStats} className="block w-full rounded-lg bg-stone-800/70 px-3 py-2 text-left hover:bg-stone-800" aria-label="開啟專注統計">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-stone-300">🎯 今日 {stats.today} / {stats.goal} 分{stats.reached ? ' ✅' : ''}</span>
+            <span className="text-orange-300">{stats.streak > 0 ? `🔥 ${stats.streak} 天` : ''}</span>
+          </div>
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-700">
+            <div className={`h-full rounded-full ${stats.reached ? 'bg-emerald-400' : 'bg-amber-500'}`} style={{ width: `${Math.round(stats.pct * 100)}%`, transition: 'width .5s ease' }} />
+          </div>
+        </button>
+      )}
 
       {mySeat && (
         <div className="space-y-2">
@@ -201,10 +256,10 @@ export default function ControlPanel({
           )}
           <input value={task} onChange={(e) => { setTask(e.target.value); if (planId) setPlanId(null); }} maxLength={40} placeholder="這輪要做什麼？（例：微積分習題）" className={input} />
           <div className="flex gap-2">
-            <button type="button" disabled={busy} onClick={startFocus} className={`${btn} bg-amber-600 text-white hover:bg-amber-500`}>
+            <button type="button" disabled={busy} onClick={() => startFocus(false)} className={`${btn} bg-amber-600 text-white hover:bg-amber-500`}>
               <BookOpen size={16} /> 開始專注
             </button>
-            <button type="button" disabled={busy} onClick={startBreak} className={`${btn} bg-emerald-800 text-emerald-50 hover:bg-emerald-700`}>
+            <button type="button" disabled={busy} onClick={() => startBreak()} className={`${btn} bg-emerald-800 text-emerald-50 hover:bg-emerald-700`}>
               <Coffee size={16} /> 休息
             </button>
           </div>
@@ -246,6 +301,11 @@ export default function ControlPanel({
         <button type="button" onClick={onOpenCalendar} className={`${btn} bg-stone-800 hover:bg-stone-700`}>
           <CalendarDays size={16} /> 行事曆
         </button>
+        {!isGuest && (
+          <button type="button" onClick={onOpenStats} className={`${btn} bg-stone-800 hover:bg-stone-700`}>
+            <BarChart3 size={16} /> 統計
+          </button>
+        )}
         <button type="button" onClick={onOpenForum} className={`${btn} bg-stone-800 hover:bg-stone-700`}>
           <MessagesSquare size={16} /> 讀書論壇
         </button>

@@ -13,7 +13,7 @@ export default function SpeechBubble({ bubble }) {
 
   if (!bubble || bubble.until <= Date.now()) return null;
   return (
-    <div className="pointer-events-none max-w-[200px] break-words rounded-xl rounded-bl-sm bg-white/95 px-3 py-1.5 text-center text-xs font-medium text-stone-800 shadow-lg">
+    <div className={`pointer-events-none max-w-[200px] break-words rounded-xl rounded-bl-sm bg-white/95 text-center font-medium text-stone-800 shadow-lg ${bubble.big ? 'px-2.5 py-0.5 text-2xl' : 'px-3 py-1.5 text-xs'}`}>
       {bubble.text}
     </div>
   );
