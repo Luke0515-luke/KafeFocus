@@ -168,10 +168,10 @@ function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, o
     if (isGuest) { onRequireAuth('入座要先登入／註冊，註冊完就能選位子開始讀書。'); return; }
     players.sitAt(seat);
   }, [players, isGuest, onRequireAuth]);
-  const handleFloorClick = useCallback((x, z) => {
+  const handleFloorClick = useCallback((x, z, y = 0) => {
     if (isGuest) { setNotice('目前是訪客模式，可以看大家讀書；登入後才能在咖啡廳裡走動、入座。'); return; }
     if (mySeat) { setNotice('要先按「離座」站起來，才能在咖啡廳裡走動。'); return; }
-    players.walkTo(x, z);
+    players.walkTo(x, z, y);
   }, [mySeat, players, isGuest]);
 
   const handleSaveAvatar = useCallback(async (url) => {
