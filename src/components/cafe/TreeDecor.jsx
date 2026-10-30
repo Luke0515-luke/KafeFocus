@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
-  TREE, FLOOR2_Y, GROUND_R, UPPER, STAIR, STAIR_STEPS, UPPER_TABLES,
+  TREE, FLOOR2_Y, GROUND_R, UPPER, STAIR, STAIR_STEPS, STAIR_MOUTH, STAIR_TOP, UPPER_TABLES,
   polar, rngFactory, mushroomSpots,
 } from './treeLayout';
 
@@ -403,6 +403,37 @@ export function UpperFloorClickPlane({ onFloorClick }) {
     >
       <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
     </mesh>
+  );
+}
+
+/**
+ * 樓梯的點擊區（透明、比踏面大一圈）：點樓梯 = 上樓（人在二樓就是下樓）。
+ * 樓梯在一樓可走範圍之外，所以一定要靠這個才點得到。由 CafeScene 放進場景。
+ */
+export function StairClickZones({ onFloorClick, meRef }) {
+  const go = (e) => {
+    if (e.delta > 6) return;
+    e.stopPropagation();
+    const up = (meRef?.current?.y ?? 0) > FLOOR2_Y / 2;
+    if (up) onFloorClick(STAIR_MOUTH.x, STAIR_MOUTH.z, 0);
+    else onFloorClick(STAIR_TOP.x, STAIR_TOP.z, FLOOR2_Y);
+  };
+  return (
+    <group>
+      {STAIR_STEPS.map((st) => {
+        const [x, , z] = polar(st.phi, STAIR.r);
+        return (
+          <mesh
+            key={st.i} position={[x, st.y + 0.6, z]} rotation={[0, -rad(st.phi), 0]} onClick={go}
+            onPointerOver={() => { document.body.style.cursor = 'pointer'; }}
+            onPointerOut={() => { document.body.style.cursor = 'auto'; }}
+          >
+            <boxGeometry args={[STAIR.w + 0.6, 1.8, 1.8]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          </mesh>
+        );
+      })}
+    </group>
   );
 }
 
