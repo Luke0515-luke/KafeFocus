@@ -10,7 +10,7 @@ function DestMarker({ destRef }) {
     if (!ring.current) return;
     ring.current.visible = !!d?.active;
     if (!d?.active) return;
-    ring.current.position.set(d.x, 0.03, d.z);
+    ring.current.position.set(d.x, (d.y ?? 0) + 0.03, d.z);
     const s = 1 + Math.sin(clock.elapsedTime * 6) * 0.12;
     ring.current.scale.set(s, s, s);
   });

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html, RoundedBox } from '@react-three/drei';
-import { seatStyle, seatHeight } from './layout';
+import { seatStyle, seatHeight, seatFloorY } from './layout';
 import { ThemeChair } from './ThemeFurniture';
 import { usePalette } from './palette';
 
@@ -200,7 +200,7 @@ export default function Seat3D({ seat, occupied, onSelect }) {
   };
 
   return (
-    <group position={[seat.pos_x, 0, seat.pos_z]} rotation={[0, seat.rot_y, 0]}>
+    <group position={[seat.pos_x, seatFloorY(seat), seat.pos_z]} rotation={[0, seat.rot_y, 0]}>
       <Chair seat={seat} />
 
       {!occupied && (

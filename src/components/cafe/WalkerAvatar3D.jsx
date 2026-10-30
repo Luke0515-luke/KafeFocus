@@ -136,7 +136,7 @@ function WalkerModel({ url, motion, name, isSelf, bubble, uid, outfit }) {
 
 /**
  * 站著 / 走路的角色。
- * stateRef.current = { x, z, rot, moving }：本人由模擬直接更新；別人（smooth）則會平滑地追向網路傳來的位置。
+ * stateRef.current = { x, z, y（樓層高度，沒有就是 0）, rot, moving }：本人由模擬直接更新；別人（smooth）則會平滑地追向網路傳來的位置。
  */
 export default function WalkerAvatar3D({ stateRef, url: rawUrl, name, isSelf = false, bubble, smooth = false, uid, outfit }) {
   const url = useMemo(() => sanitizeAvatarUrl(rawUrl), [rawUrl]);
@@ -148,22 +148,23 @@ export default function WalkerAvatar3D({ stateRef, url: rawUrl, name, isSelf = f
     const s = stateRef.current;
     if (!s || !outer.current) return;
     const dt = Math.min(delta, 0.05);
-    if (!vis.current) vis.current = { x: s.x, z: s.z, rot: s.rot };
+    if (!vis.current) vis.current = { x: s.x, y: s.y ?? 0, z: s.z, rot: s.rot };
     const v = vis.current;
     let moving = !!s.moving;
     if (smooth) {
       const px = v.x; const pz = v.z;
       const k = 1 - Math.exp(-10 * dt);
       v.x += (s.x - v.x) * k;
+      v.y += ((s.y ?? 0) - v.y) * k;
       v.z += (s.z - v.z) * k;
       const speed = Math.hypot(v.x - px, v.z - pz) / Math.max(dt, 1e-4);
       moving = speed > 0.25;
       if (moving) v.rot = dampAngle(v.rot, Math.atan2(v.x - px, v.z - pz), 10, dt);
       else v.rot = dampAngle(v.rot, s.rot, 6, dt);
     } else {
-      v.x = s.x; v.z = s.z; v.rot = s.rot;
+      v.x = s.x; v.y = s.y ?? 0; v.z = s.z; v.rot = s.rot;
     }
-    outer.current.position.set(v.x, 0, v.z);
+    outer.current.position.set(v.x, v.y, v.z);
     outer.current.rotation.y = v.rot;
     const m = motion.current;
     m.amt = THREE.MathUtils.damp(m.amt, moving ? 1 : 0, 8, dt);

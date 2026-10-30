@@ -13,7 +13,7 @@ import { createSeatedState, stepActivity, SIT } from './seatedMotion';
 import SeatProps from './SeatProps';
 import AvatarHead from './AvatarHead';
 import SpeechBubble from './Bubble';
-import { effectiveStyle, seatHeight } from './layout';
+import { effectiveStyle, seatHeight, seatFloorY } from './layout';
 import { usePalette } from './palette';
 import { applyOutfitToRig, outfitKey, resolveOutfit } from '../../lib/outfit';
 import { AvatarErrorBoundary } from './AvatarErrorBoundary';
@@ -261,7 +261,7 @@ export default function UserAvatar3D({ seat, isSelf = false, bubble, outfit }) {
 
   return (
     // 座標：seat.pos_* 是椅面中心；rot_y 決定面向
-    <group position={[seat.pos_x, seatY, seat.pos_z]} rotation={[0, seat.rot_y, 0]}>
+    <group position={[seat.pos_x, seatY + seatFloorY(seat), seat.pos_z]} rotation={[0, seat.rot_y, 0]}>
       {url ? (
         <AvatarErrorBoundary key={url} fallback={placeholder}>
           <Suspense fallback={<PlaceholderAvatar seat={seat} isSelf={isSelf} dim bubble={bubble} st={st} style={style} outfit={outfit} />}>

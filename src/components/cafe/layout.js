@@ -59,7 +59,48 @@ export const PLANT_SPOTS = [
   [4.0, 0, 8.4, 1.3], [-8.3, 0, 5.0, 1.2], [-5.0, 0, 8.3, 1.3],
 ];
 
-const STYLE_BY_INDEX = Object.fromEntries(SEAT_LAYOUT.map((s) => [s.i, s.style]));
+/* ------------------------------------------------------------------------------------------
+ * 精靈樹洞咖啡館「二樓：樹枝咖啡廳」（只有 treehouse-hollow 這間有，座位編號 24 起）
+ * 二樓是貼著樹壁的一段弧形木平台（角度 188°–240°、半徑 8.6–15.9，高度 FLOOR2_Y）。
+ * 座位的 pos_y 仍然是「椅面高度」（和一樓一致），二樓的地板高度由 seatFloorY() 加上去。
+ * 這個檔案不能 import 別的檔案（scripts/gen-seats-sql.mjs 會用 data: URL 直接載入它）。
+ * ------------------------------------------------------------------------------------------ */
+export const TREE = { cx: 0, cz: 2, R: 16, H: 46 };
+export const FLOOR2_Y = 5.24;            // 二樓地板高度（螺旋樓梯第 10 階的高度）
+export const UPPER_FIRST_INDEX = 24;     // 二樓座位的起始編號
+const r2 = (n) => Math.round(n * 100) / 100;
+const r4 = (n) => Math.round(n * 10000) / 10000;
+const pol = (phiDeg, r) => {
+  const a = (phiDeg * PI) / 180;
+  return [r2(TREE.cx + Math.cos(a) * r), r2(TREE.cz + Math.sin(a) * r)];
+};
+// 兩排圓桌：外圈靠樹壁、內圈靠欄杆；每張桌子沿半徑方向前後各一位
+const UPPER_ROWS = [
+  { r: 14.0, phis: [198, 210, 222, 234] },
+  { r: 10.4, phis: [204, 217, 230] },
+];
+const UPPER_TABLE_LIST = [];
+const UPPER_SEAT_LIST = [];
+UPPER_ROWS.forEach((row, ri) => {
+  row.phis.forEach((phi, k) => {
+    const [tx, tz] = pol(phi, row.r);
+    UPPER_TABLE_LIST.push({ id: `up-${ri}-${k}`, type: 'cafe', position: [tx, 0, tz], radius: 0.45, height: 0.75 });
+    [-0.94, 0.94].forEach((off) => {
+      const [sx, sz] = pol(phi, row.r + off);
+      UPPER_SEAT_LIST.push({
+        i: UPPER_FIRST_INDEX + UPPER_SEAT_LIST.length, x: sx, y: 0.45, z: sz,
+        rot: r4(Math.atan2(tx - sx, tz - sz)), style: 'bentwood',
+      });
+    });
+  });
+});
+export const UPPER_SEAT_LAYOUT = UPPER_SEAT_LIST;
+export const UPPER_TABLES = UPPER_TABLE_LIST;
+
+/** 座位所在樓層的地板高度（一樓 0、二樓 FLOOR2_Y） */
+export const seatFloorY = (seat) => (seat.seat_index >= UPPER_FIRST_INDEX ? FLOOR2_Y : 0);
+
+const STYLE_BY_INDEX = Object.fromEntries([...SEAT_LAYOUT, ...UPPER_SEAT_LAYOUT].map((s) => [s.i, s.style]));
 
 /** 跪坐（榻榻米）主題：椅面只有座墊高度，姿勢改為跪坐 */
 export const KNEEL_SEAT_Y = 0.09;
