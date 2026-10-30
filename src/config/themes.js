@@ -270,7 +270,7 @@ export const CAFES = {
   },
   'treehouse-hollow': {
     theme: 'treehouse', icon: 'TreeDeciduous', name: '精靈樹洞咖啡館',
-    blurb: '藏在一棵巨大空心樹幹裡的咖啡館，像奇妙仙子的樹洞世界：螺旋樹梯、圓形窗洞、發光的蘑菇、吊燈籠與漫天螢火蟲。可以自由移動視角逛整個樹洞。', tags: ['奇幻', '樹屋', '螢火蟲'],
+    blurb: '藏在一棵巨大空心樹幹裡的咖啡館，像奇妙仙子的樹洞世界：圓形窗洞、發光的蘑菇、吊燈籠與漫天螢火蟲。整片苔蘚地面都能散步，沿著螺旋樹梯往上走，還有二樓的樹枝咖啡廳。', tags: ['奇幻', '樹屋', '螢火蟲', '二樓'],
   },
   'forest-reading': {
     theme: 'forest', icon: 'Leaf', name: '森林書屋',
