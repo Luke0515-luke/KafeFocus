@@ -7,7 +7,7 @@ import UserAvatar3D, { preloadAvatar } from './UserAvatar3D';
 import WalkersLayer from './WalkersLayer';
 import { THEMES } from '../../config/themes';
 import { PaletteContext, makePalette } from './palette';
-import { TREE, UpperFloorClickPlane } from './TreeDecor';
+import { TREE, UpperFloorClickPlane, StairClickZones } from './TreeDecor';
 import { FLOOR2_Y, seatFloorY } from './layout';
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -151,6 +151,7 @@ export default function CafeScene({
         )}
         {/* 樹屋二樓（樹枝咖啡廳）的地板：點下去會自動走上樓梯 */}
         {onFloorClick && tree && <UpperFloorClickPlane onFloorClick={onFloorClick} />}
+        {onFloorClick && tree && <StairClickZones onFloorClick={onFloorClick} meRef={players?.meRef} />}
         {players && (
           <WalkersLayer players={players} seats={seats} currentUserId={currentUserId} selfName={selfName} selfAvatarUrl={selfAvatarUrl} />
         )}
