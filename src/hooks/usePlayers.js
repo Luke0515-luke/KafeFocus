@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { buildNav } from '../components/cafe/nav';
+import { seatFloorY } from '../components/cafe/layout';
 import { outfitKey, sanitizeOutfit } from '../lib/outfit';
 
 const SPEED = 1.7;            // 走路速度（公尺／秒）
@@ -39,7 +40,7 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
   const meRef = useRef(null);
   if (!meRef.current) {
     const p = nav.nearestFree(SPAWN.x, SPAWN.z);
-    meRef.current = { x: p.x, z: p.z, rot: Math.PI, moving: false };
+    meRef.current = { x: p.x, z: p.z, y: 0, rot: Math.PI, moving: false };
   }
   const pathRef = useRef([]);
   const pendingSeatRef = useRef(null);
@@ -85,16 +86,18 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
       // 剛從座位站起來：試著站到椅子後方 / 兩側第一個走得到的位置
       const f = { x: Math.sin(prev.rot_y), z: Math.cos(prev.rot_y) };
       const side = { x: f.z, z: -f.x };
+      const fy = seatFloorY(prev);            // 二樓的座位：站起來還是在二樓
+      const lv = nav.levelOf(fy);
       const tries = [[-0.7, 0], [0, 0.7], [0, -0.7], [0.7, 0], [-1.1, 0.5], [-1.1, -0.5]];
       let spot = null;
       for (const [fa, sa] of tries) {
         const x = prev.pos_x + f.x * fa + side.x * sa;
         const z = prev.pos_z + f.z * fa + side.z * sa;
-        if (nav.isFree(x, z)) { spot = { x, z }; break; }
+        if (nav.isFree(x, z, lv)) { spot = { x, z }; break; }
       }
-      spot ??= nav.nearestFree(prev.pos_x, prev.pos_z);
+      spot ??= nav.nearestFree(prev.pos_x, prev.pos_z, lv);
       const me = meRef.current;
-      me.x = spot.x; me.z = spot.z; me.rot = prev.rot_y + Math.PI; me.moving = false;
+      me.x = spot.x; me.z = spot.z; me.y = nav.levelY(lv); me.rot = prev.rot_y + Math.PI; me.moving = false;
       heading.current = me.rot;
     }
     lastSeatRef.current = mySeat;
@@ -117,9 +120,10 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
         const p = path[0];
         const dx = p.x - me.x; const dz = p.z - me.z;
         const d = Math.hypot(dx, dz);
+        const py = p.y ?? me.y;
         if (d > 1e-4) heading.current = Math.atan2(dx, dz);
-        if (d <= remaining) { me.x = p.x; me.z = p.z; remaining -= d; path.shift(); }
-        else { me.x += (dx / d) * remaining; me.z += (dz / d) * remaining; remaining = 0; }
+        if (d <= remaining) { me.x = p.x; me.z = p.z; me.y = py; remaining -= d; path.shift(); }
+        else { const f = remaining / d; me.x += dx * f; me.z += dz * f; me.y += (py - me.y) * f; remaining = 0; }
       }
       me.rot = dampAngle(me.rot, heading.current, 14, dt);
       me.moving = path.length > 0;
@@ -146,17 +150,18 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
       if (!p || typeof p.id !== 'string' || p.id === userId || !num(p.x, 30) || !num(p.z, 30)) return;
       const map = othersRef.current;
       const rot = num(p.r, 20) ? p.r : 0;
+      const py = num(p.y, 30) ? p.y : 0;
       const nm = cleanText(p.name, 24) || '同學';
       const av = typeof p.av === 'string' ? p.av.slice(0, 300) : null;
       if (p.o) rememberOutfit(p.id, p.o);
       let o = map.get(p.id);
       if (!o) {
-        o = { ref: { current: { x: p.x, z: p.z, rot, moving: !!p.m } }, name: nm, avatar: av, last: Date.now() };
+        o = { ref: { current: { x: p.x, z: p.z, y: py, rot, moving: !!p.m } }, name: nm, avatar: av, last: Date.now() };
         map.set(p.id, o);
         syncOthers();
       } else {
         const s = o.ref.current;
-        s.x = p.x; s.z = p.z; s.rot = rot; s.moving = !!p.m;
+        s.x = p.x; s.z = p.z; s.y = py; s.rot = rot; s.moving = !!p.m;
         o.last = Date.now();
         if (o.name !== nm || o.avatar !== av) { o.name = nm; o.avatar = av; syncOthers(); }
       }
@@ -223,14 +228,14 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
       if (!ch || !readyRef.current || seatedRef.current) return;
       const me = meRef.current;
       const now = Date.now();
-      const key = `${me.x.toFixed(2)},${me.z.toFixed(2)},${me.moving ? 1 : 0}`;
+      const key = `${me.x.toFixed(2)},${me.z.toFixed(2)},${me.y.toFixed(2)},${me.moving ? 1 : 0}`;
       if (key === lastKey && now - lastSent < IDLE_BEAT_MS) return;
       lastKey = key; lastSent = now;
       ch.send({
         type: 'broadcast', event: 'pos',
         payload: {
           id: userId, name: latest.current.name ?? '同學', av: latest.current.avatarUrl ?? null,
-          x: +me.x.toFixed(2), z: +me.z.toFixed(2), r: +me.rot.toFixed(2), m: me.moving, o: latest.current.outfit,
+          x: +me.x.toFixed(2), z: +me.z.toFixed(2), y: +me.y.toFixed(2), r: +me.rot.toFixed(2), m: me.moving, o: latest.current.outfit,
         },
       });
     }, SEND_MS);
@@ -238,17 +243,18 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
   }, [cafeId, userId]);
 
   // ---- 動作 ----
-  /** 走到地板上的某一點（座位中不能走：要先離座） */
-  const walkTo = useCallback((x, z) => {
+  /** 走到地板上的某一點（座位中不能走：要先離座）。y = 點到的地板高度（樹屋二樓才會用到） */
+  const walkTo = useCallback((x, z, y = 0) => {
     if (seatedRef.current) return false;
     const me = meRef.current;
     const nv = latest.current.nav;
-    const goal = nv.nearestFree(x, z);
-    const path = nv.findPath({ x: me.x, z: me.z }, goal);
+    const lv = nv.levelOf(y);
+    const goal = nv.nearestFree(x, z, lv);
+    const path = nv.findPath({ x: me.x, z: me.z, y: me.y }, { x: goal.x, z: goal.z, y: nv.levelY(lv) });
     if (!path) return false;
     pendingSeatRef.current = null;
     pathRef.current = path;
-    destRef.current = { x: goal.x, z: goal.z, active: path.length > 0 };
+    destRef.current = { x: goal.x, z: goal.z, y: nv.levelY(lv), active: path.length > 0 };
     return true;
   }, []);
 
@@ -257,10 +263,12 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
     if (seatedRef.current) { latest.current.onSit?.(seat); return; }
     const me = meRef.current;
     const nv = latest.current.nav;
+    const lv = nv.levelOf(seatFloorY(seat));   // 座位在哪一層
+    const ly = nv.levelY(lv);
     let best = null;
     const consider = (c) => {
-      if (!nv.isFree(c.x, c.z)) return;
-      const path = nv.findPath({ x: me.x, z: me.z }, c);
+      if (!nv.isFree(c.x, c.z, lv)) return;
+      const path = nv.findPath({ x: me.x, z: me.z, y: me.y }, { x: c.x, z: c.z, y: ly });
       if (!path) return;
       let len = 0; let px = me.x; let pz = me.z;
       path.forEach((p) => { len += Math.hypot(p.x - px, p.z - pz); px = p.x; pz = p.z; });
@@ -274,12 +282,12 @@ export function usePlayers({ cafeId, userId, name, avatarUrl, theme, mySeat, onS
       }
       if (best) break;
     }
-    if (!best) consider(nv.nearestFree(seat.pos_x, seat.pos_z));
+    if (!best) consider(nv.nearestFree(seat.pos_x, seat.pos_z, lv));
     if (!best) { latest.current.onSit?.(seat); return; }   // 找不到路：直接入座
     if (best.len < 0.8) { latest.current.onSit?.(seat); return; }
     pathRef.current = best.path;
     pendingSeatRef.current = seat;
-    destRef.current = { x: seat.pos_x, z: seat.pos_z, active: true };
+    destRef.current = { x: seat.pos_x, z: seat.pos_z, y: ly, active: true };
   }, []);
 
   const sendChat = useCallback((raw) => {
