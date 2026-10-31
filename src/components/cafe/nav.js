@@ -1,17 +1,17 @@
 import { SEAT_LAYOUT, TABLES, PLANT_SPOTS, UPPER_SEAT_LAYOUT, UPPER_TABLES, FLOOR2_Y } from './layout';
-import { TREE, GROUND_R, UPPER, STAIR_MOUTH, STAIR_TOP, STAIR_PATH, mushroomObstacles } from './treeLayout';
+import { TREE, GROUND_R, STAIR_MOUTH, STAIR_TOP, STAIR_PATH, mushroomObstacles, insideUpperRegion } from './treeLayout';
 
 /**
  * 走路用的尋路：把房間切成 0.2 公尺的格子，桌椅等障礙物依角色半徑「膨脹」後標成不可走，
  * 用 A* 找路，再把路徑拉直成少數幾個轉折點。障礙物與 CafeDecor 的擺設要對得上。
  *
  * 精靈樹洞咖啡館（theme.decor === 'tree'）有兩層：
- *   第 0 層 = 一樓（半徑 GROUND_R 的圓形地面），第 1 層 = 二樓樹枝咖啡廳（弧形木平台，高度 FLOOR2_Y）。
+ *   第 0 層 = 一樓（半徑 GROUND_R 的圓形地面），第 1 層 = 二樓（環形平台 + 通往各間樹枝咖啡廳的通道，高度 FLOOR2_Y）。
  *   兩層之間靠螺旋樓梯（STAIR_PATH）連接。路徑點都帶 y，走路模擬會沿著 y 爬樓梯。
  */
 const CELL = 0.2;
 const ROOM_BOUNDS = { X0: -9, X1: 9, Z0: -5, Z1: 9 };
-const TREE_BOUNDS = { X0: TREE.cx - 15, X1: TREE.cx + 15, Z0: TREE.cz - 15, Z1: TREE.cz + 15 };
+const TREE_BOUNDS = { X0: TREE.cx - 33, X1: TREE.cx + 33, Z0: TREE.cz - 33, Z1: TREE.cz + 33 }; // 要包含懸在樹幹外面的樹枝咖啡廳
 const AGENT = 0.24;     // 角色半徑
 const WALL = 0.45;      // 離牆至少這麼遠
 
@@ -75,17 +75,6 @@ function hitsObstacle(x, z, obs) {
   return false;
 }
 
-/** 二樓弧形平台的內部（離邊緣至少 WALL） */
-function insideUpper(x, z) {
-  const dx = x - TREE.cx; const dz = z - TREE.cz;
-  const r = Math.hypot(dx, dz);
-  if (r < UPPER.ri + WALL || r > UPPER.ro - 0.3) return false;
-  let phi = (Math.atan2(dz, dx) * 180) / Math.PI; if (phi < 0) phi += 360;
-  const d0 = ((phi - UPPER.phi0) * Math.PI) / 180; const d1 = ((UPPER.phi1 - phi) * Math.PI) / 180;
-  if (d0 < 0 || d1 < 0) return false;
-  return r * Math.sin(Math.min(d0, Math.PI / 2)) >= 0.3 && r * Math.sin(Math.min(d1, Math.PI / 2)) >= WALL;
-}
-
 class MinHeap {
   constructor() { this.a = []; }
   push(f, i) {
@@ -136,7 +125,7 @@ export function buildNav(theme) {
     ? (x, z) => Math.hypot(x - TREE.cx, z - TREE.cz) <= GROUND_R - WALL
     : (x, z) => !(x < X0 + WALL || x > X1 - WALL || z < Z0 + WALL || z > Z1 - WALL);
   const levels = [makeLevel(obstaclesFor(theme), inGround)];
-  if (tree) levels.push(makeLevel(upperObstacles(), insideUpper));
+  if (tree) levels.push(makeLevel(upperObstacles(), insideUpperRegion));
 
   const levelOf = (y) => (tree && (y ?? 0) > FLOOR2_Y / 2 ? 1 : 0);
   const levelY = (lv) => (lv === 1 ? FLOOR2_Y : 0);
