@@ -62,43 +62,49 @@ export const PLANT_SPOTS = [
 /* ------------------------------------------------------------------------------------------
  * 精靈樹洞咖啡館「二樓：樹枝咖啡廳」（只有 treehouse-hollow 這間有，座位編號 24 起）
  * 二樓是一圈中空的圓弧木平台（貼著樹壁，高度 FLOOR2_Y，中間看得到一樓）；
- * 樹壁上開了幾個圓拱通道（樹枝），每條通道通往一間懸在樹幹外面的圓形樹枝咖啡廳。
+ * 樹壁上開了幾個圓拱通道，每條通道通往一整條長在樹幹外面的空心大樹枝（樹枝咖啡廳）；另有幾個圓拱被樹皮封住。
  * 座位的 pos_y 仍然是「椅面高度」（和一樓一致），二樓的地板高度由 seatFloorY() 加上去。
  * 這個檔案不能 import 別的檔案（scripts/gen-seats-sql.mjs 會用 data: URL 直接載入它）。
  * ------------------------------------------------------------------------------------------ */
 export const TREE = { cx: 0, cz: 2, R: 16, H: 46 };
 export const FLOOR2_Y = 5.24;            // 二樓地板高度（螺旋樓梯第 10 階的高度）
 export const UPPER_FIRST_INDEX = 24;     // 二樓座位的起始編號
-// 通道 / 圓房間的尺寸：通道從樹壁（半徑 wallR）往外長，盡頭是半徑 roomR 的圓房間（圓心在半徑 roomCenterR）
-export const BRANCH = { wallR: 15.9, tunnelHalf: 1.05, roomR: 4.5, roomCenterR: 25.6 };
-// 通道在樹壁上的方位（度）：避開圓形窗洞（見 TreeDecor 的 RoundWindow）
+// 樹壁上的圓拱 → 一小段通道（passHalf = 半寬）→ 一整條空心大樹枝（hallStart–hallEnd，半寬 hallHalf，尾端是半圓）。
+// 沿著「朝外」方向的距離（along）都是從樹心算起。
+export const BRANCH = { wallR: 15.9, passHalf: 1.05, hallStart: 19.0, hallHalf: 4.4, hallEnd: 34.2 };
+// 4 條通往樹枝咖啡廳的通道（度）：避開圓形窗洞（見 TreeDecor 的 RoundWindow）
 export const BRANCH_NAMES = ['月光枝', '螢火枝', '晨露枝', '蘑菇枝'];
-const BRANCH_PHIS = [205, 270, 12, 50];
+const BRANCH_PHIS = [200, 270, 10, 60];
+// 被樹皮封住的圓拱（只是裝飾，進不去）
+export const BARK_PHIS = [232, 32, 100, 135];
 const r2 = (n) => Math.round(n * 100) / 100;
 const r4 = (n) => Math.round(n * 10000) / 10000;
-/** 每間樹枝咖啡廳：方位 phi、朝外方向 d、側向 l、圓房間圓心 c */
+/** 每間樹枝咖啡廳：方位 phi、朝外方向 d、側向 l */
 export const BRANCH_ROOMS = BRANCH_PHIS.map((phi, k) => {
   const a = (phi * PI) / 180;
-  const d = [Math.cos(a), Math.sin(a)];
-  const l = [-Math.sin(a), Math.cos(a)];
-  return { k, phi, name: BRANCH_NAMES[k], d, l, c: [TREE.cx + d[0] * BRANCH.roomCenterR, TREE.cz + d[1] * BRANCH.roomCenterR] };
+  return { k, phi, name: BRANCH_NAMES[k], d: [Math.cos(a), Math.sin(a)], l: [-Math.sin(a), Math.cos(a)] };
 });
-// 每間房 2 張圓桌（在房間靠裡面的一半，左右各一），每張桌子沿「朝外」方向前後各一位 → 每間 4 個座位
+// 每條樹枝裡：左右兩排圓桌（3 列 × 2 排 = 6 張，每張沿「朝外」方向前後各一位）+ 盡頭一張大圓桌（4 位）→ 每間 16 個座位
 const UPPER_TABLE_LIST = [];
 const UPPER_SEAT_LIST = [];
 BRANCH_ROOMS.forEach((room) => {
-  [-1, 1].forEach((side, m) => {
-    const at = (a, b) => [r2(room.c[0] + room.d[0] * a + room.l[0] * b), r2(room.c[1] + room.d[1] * a + room.l[1] * b)];
-    const [tx, tz] = at(1.2, side * 1.9);
-    UPPER_TABLE_LIST.push({ id: `br-${room.k}-${m}`, type: 'cafe', position: [tx, 0, tz], radius: 0.45, height: 0.75 });
-    [-0.94, 0.94].forEach((off) => {
-      const [sx, sz] = at(1.2 + off, side * 1.9);
-      UPPER_SEAT_LIST.push({
-        i: UPPER_FIRST_INDEX + UPPER_SEAT_LIST.length, x: sx, y: 0.45, z: sz,
-        rot: r4(Math.atan2(tx - sx, tz - sz)), style: 'bentwood',
-      });
+  const at = (a, b) => [r2(TREE.cx + room.d[0] * a + room.l[0] * b), r2(TREE.cz + room.d[1] * a + room.l[1] * b)];
+  const addSeat = (tx, tz, a, b) => {
+    const [sx, sz] = at(a, b);
+    UPPER_SEAT_LIST.push({ i: UPPER_FIRST_INDEX + UPPER_SEAT_LIST.length, x: sx, y: 0.45, z: sz, rot: r4(Math.atan2(tx - sx, tz - sz)), style: 'bentwood' });
+  };
+  let m = 0;
+  [23, 27, 31].forEach((a) => {
+    [-1, 1].forEach((side) => {
+      const [tx, tz] = at(a, side * 2.6);
+      UPPER_TABLE_LIST.push({ id: `br-${room.k}-${m}`, type: 'cafe', position: [tx, 0, tz], radius: 0.45, height: 0.75 });
+      m += 1;
+      [-0.94, 0.94].forEach((off) => addSeat(tx, tz, a + off, side * 2.6));
     });
   });
+  const [ex, ez] = at(35.0, 0);
+  UPPER_TABLE_LIST.push({ id: `br-${room.k}-end`, type: 'cafe', position: [ex, 0, ez], radius: 0.45, height: 0.75 });
+  [[-0.94, 0], [0.94, 0], [0, -0.94], [0, 0.94]].forEach(([da, db]) => addSeat(ex, ez, 35.0 + da, db));
 });
 export const UPPER_SEAT_LAYOUT = UPPER_SEAT_LIST;
 export const UPPER_TABLES = UPPER_TABLE_LIST;
