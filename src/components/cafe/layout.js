@@ -61,32 +61,38 @@ export const PLANT_SPOTS = [
 
 /* ------------------------------------------------------------------------------------------
  * 精靈樹洞咖啡館「二樓：樹枝咖啡廳」（只有 treehouse-hollow 這間有，座位編號 24 起）
- * 二樓是貼著樹壁的一段弧形木平台（角度 188°–240°、半徑 8.6–15.9，高度 FLOOR2_Y）。
+ * 二樓是一圈中空的圓弧木平台（貼著樹壁，高度 FLOOR2_Y，中間看得到一樓）；
+ * 樹壁上開了幾個圓拱通道（樹枝），每條通道通往一間懸在樹幹外面的圓形樹枝咖啡廳。
  * 座位的 pos_y 仍然是「椅面高度」（和一樓一致），二樓的地板高度由 seatFloorY() 加上去。
  * 這個檔案不能 import 別的檔案（scripts/gen-seats-sql.mjs 會用 data: URL 直接載入它）。
  * ------------------------------------------------------------------------------------------ */
 export const TREE = { cx: 0, cz: 2, R: 16, H: 46 };
 export const FLOOR2_Y = 5.24;            // 二樓地板高度（螺旋樓梯第 10 階的高度）
 export const UPPER_FIRST_INDEX = 24;     // 二樓座位的起始編號
+// 通道 / 圓房間的尺寸：通道從樹壁（半徑 wallR）往外長，盡頭是半徑 roomR 的圓房間（圓心在半徑 roomCenterR）
+export const BRANCH = { wallR: 15.9, tunnelHalf: 1.05, roomR: 4.5, roomCenterR: 25.6 };
+// 通道在樹壁上的方位（度）：避開圓形窗洞（見 TreeDecor 的 RoundWindow）
+export const BRANCH_NAMES = ['月光枝', '螢火枝', '晨露枝', '蘑菇枝'];
+const BRANCH_PHIS = [205, 270, 12, 50];
 const r2 = (n) => Math.round(n * 100) / 100;
 const r4 = (n) => Math.round(n * 10000) / 10000;
-const pol = (phiDeg, r) => {
-  const a = (phiDeg * PI) / 180;
-  return [r2(TREE.cx + Math.cos(a) * r), r2(TREE.cz + Math.sin(a) * r)];
-};
-// 兩排圓桌：外圈靠樹壁、內圈靠欄杆；每張桌子沿半徑方向前後各一位
-const UPPER_ROWS = [
-  { r: 14.0, phis: [198, 210, 222, 234] },
-  { r: 10.4, phis: [204, 217, 230] },
-];
+/** 每間樹枝咖啡廳：方位 phi、朝外方向 d、側向 l、圓房間圓心 c */
+export const BRANCH_ROOMS = BRANCH_PHIS.map((phi, k) => {
+  const a = (phi * PI) / 180;
+  const d = [Math.cos(a), Math.sin(a)];
+  const l = [-Math.sin(a), Math.cos(a)];
+  return { k, phi, name: BRANCH_NAMES[k], d, l, c: [TREE.cx + d[0] * BRANCH.roomCenterR, TREE.cz + d[1] * BRANCH.roomCenterR] };
+});
+// 每間房 2 張圓桌（在房間靠裡面的一半，左右各一），每張桌子沿「朝外」方向前後各一位 → 每間 4 個座位
 const UPPER_TABLE_LIST = [];
 const UPPER_SEAT_LIST = [];
-UPPER_ROWS.forEach((row, ri) => {
-  row.phis.forEach((phi, k) => {
-    const [tx, tz] = pol(phi, row.r);
-    UPPER_TABLE_LIST.push({ id: `up-${ri}-${k}`, type: 'cafe', position: [tx, 0, tz], radius: 0.45, height: 0.75 });
+BRANCH_ROOMS.forEach((room) => {
+  [-1, 1].forEach((side, m) => {
+    const at = (a, b) => [r2(room.c[0] + room.d[0] * a + room.l[0] * b), r2(room.c[1] + room.d[1] * a + room.l[1] * b)];
+    const [tx, tz] = at(1.2, side * 1.9);
+    UPPER_TABLE_LIST.push({ id: `br-${room.k}-${m}`, type: 'cafe', position: [tx, 0, tz], radius: 0.45, height: 0.75 });
     [-0.94, 0.94].forEach((off) => {
-      const [sx, sz] = pol(phi, row.r + off);
+      const [sx, sz] = at(1.2 + off, side * 1.9);
       UPPER_SEAT_LIST.push({
         i: UPPER_FIRST_INDEX + UPPER_SEAT_LIST.length, x: sx, y: 0.45, z: sz,
         rot: r4(Math.atan2(tx - sx, tz - sz)), style: 'bentwood',
