@@ -122,7 +122,7 @@ export default function CafeScene({
 
   return (
     <div className={`relative ${className ?? 'h-full w-full'}`}>
-      <Canvas shadows dpr={[1, 2]} camera={{ position: HOME.cam, fov: 45 }} gl={{ antialias: true }}>
+      <Canvas shadows dpr={[1, 2]} camera={{ position: HOME.cam, fov: 45, near: 0.3, far: 400 }} gl={{ antialias: true }}>
         <color attach="background" args={[theme.bg]} />
         <fog attach="fog" args={[theme.bg, theme.fog[0], theme.fog[1]]} />
         <PaletteContext.Provider value={palette}>
