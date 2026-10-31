@@ -11,7 +11,7 @@ import { TREE, GROUND_R, STAIR_MOUTH, STAIR_TOP, STAIR_PATH, mushroomObstacles, 
  */
 const CELL = 0.2;
 const ROOM_BOUNDS = { X0: -9, X1: 9, Z0: -5, Z1: 9 };
-const TREE_BOUNDS = { X0: TREE.cx - 33, X1: TREE.cx + 33, Z0: TREE.cz - 33, Z1: TREE.cz + 33 }; // 要包含懸在樹幹外面的樹枝咖啡廳
+const TREE_BOUNDS = { X0: TREE.cx - 41, X1: TREE.cx + 41, Z0: TREE.cz - 41, Z1: TREE.cz + 41 }; // 要包含長在樹幹外面的樹枝咖啡廳
 const AGENT = 0.24;     // 角色半徑
 const WALL = 0.45;      // 離牆至少這麼遠
 
