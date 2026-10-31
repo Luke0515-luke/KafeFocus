@@ -111,61 +111,40 @@ export const UPPER_TABLES = UPPER_TABLE_LIST;
 
 /* ------------------------------------------------------------------------------------------
  * 三樓：分享書籍大廳（座位編號 88 起，只有 treehouse-hollow 這間有）
- * 在二樓平台的正上方又有一圈中空圓弧平台（高度 FLOOR3_Y），樹壁一整圈都是書架；
- * 平台外側的樹壁上有一個圓拱通道，通往一條更大的空心大樹枝：兩側是書架、中間是閱讀長桌，
- * 盡頭是「漂流書交換台」與一組沙發閱讀角。從二樓平台的第二段螺旋樓梯上來。
+ * 在二樓的正上方，整個樹幹中間是一整塊大圓平台（高度 FLOOR3_Y，只留一個樓梯井給第二段螺旋樓梯）：
+ * 樹壁一整圈都是書架，中間是「漂流書交換台」與一棵書樹，四周是一圈圈的閱讀圓桌與靠書牆的單人沙發。
  * ------------------------------------------------------------------------------------------ */
 export const FLOOR3_Y = 10.44;           // 三樓地板高度（第二段樓梯 = 二樓地板 + 10 階 × 0.52）
 export const FLOOR3_FIRST_INDEX = 88;    // 三樓座位的起始編號
-// 三樓環形平台（缺口 311°–341° 是第二段樓梯）：跟二樓平台同樣的半徑，上下疊在一起
-export const RING3 = { phi0: 341.0, phi1: 671.0, ri: 10.4, ro: 15.9 };
-const BH_PHI = 235;
-export const BOOK_HALL = {
-  name: '分享書籍大廳', phi: BH_PHI, d: [Math.cos((BH_PHI * PI) / 180), Math.sin((BH_PHI * PI) / 180)], l: [-Math.sin((BH_PHI * PI) / 180), Math.cos((BH_PHI * PI) / 180)],
-  wallR: 15.9, passHalf: 1.05, hallStart: 19.0, hallHalf: 5.05, hallEnd: 40.0,
-};
+// 平台：半徑 ro 的整塊圓；well = 樓梯井（第二段樓梯從這裡穿上來，沿半徑 ri–ro、角度 phi0–phi1）
+export const PLAT3 = { ro: 15.9, thick: 0.3, well: { phi0: 314.5, phi1: 341.0, ri: 12.3, ro: 14.5 }, counterR: 2.5 };
 const FLOOR3_TABLE_LIST = [];
 const FLOOR3_SEAT_LIST = [];
 {
-  const H = BOOK_HALL;
-  const at = (a, b) => [r2(TREE.cx + H.d[0] * a + H.l[0] * b), r2(TREE.cz + H.d[1] * a + H.l[1] * b)];
+  const polar2 = (phi, r) => { const a = (phi * PI) / 180; return [r2(TREE.cx + Math.cos(a) * r), r2(TREE.cz + Math.sin(a) * r)]; };
+  const inWellBand = (phi) => { const p = ((phi % 360) + 360) % 360; return p > 300 && p < 356; };   // 樓梯井附近不放桌椅
   const addSeat = (tx, tz, sx, sz, style, y) => {
     FLOOR3_SEAT_LIST.push({ i: FLOOR3_FIRST_INDEX + FLOOR3_SEAT_LIST.length, x: sx, y, z: sz, rot: r4(Math.atan2(tx - sx, tz - sz)), style });
   };
-  // 閱讀長桌 × 2（長 8、寬 1.2，沿樹枝方向），每張兩側各 4 位
-  [-1, 1].forEach((side, m) => {
-    const lat = side * 2.2;
-    const [tx, tz] = at(27.5, lat);
-    FLOOR3_TABLE_LIST.push({ id: `bk-long-${m}`, type: 'long', position: [tx, 0, tz], dir: H.d, w: 8.0, dd: 1.2, height: 0.75 });
-    [-1, 1].forEach((face) => {
-      [24.5, 26.5, 28.5, 30.5].forEach((a) => {
-        const [sx, sz] = at(a, lat + face * 0.95);
-        const [cx2, cz2] = at(a, lat);
-        addSeat(cx2, cz2, sx, sz, 'bentwood', 0.45);
-      });
-    });
+  // 中間：漂流書交換台（圓形櫃台）
+  const [cx0, cz0] = [TREE.cx, TREE.cz];
+  FLOOR3_TABLE_LIST.push({ id: 'bk-counter', type: 'ringcounter', position: [cx0, 0, cz0], radius: PLAT3.counterR, height: 1.05 });
+  // 兩圈閱讀圓桌（內圈 10 張、外圈 14 張，每張沿半徑前後各一位）
+  [{ n: 10, rc: 7.2, off: 18, tag: 'b' }, { n: 14, rc: 11.8, off: 0, tag: 'a' }].forEach(({ n, rc, off, tag }) => {
+    for (let k = 0; k < n; k += 1) {
+      const phi = off + (k * 360) / n;
+      if (inWellBand(phi)) continue;
+      const [tx, tz] = polar2(phi, rc);
+      FLOOR3_TABLE_LIST.push({ id: `bk-${tag}-${k}`, type: 'cafe', position: [tx, 0, tz], radius: 0.45, height: 0.75 });
+      [-0.94, 0.94].forEach((o) => { const [sx, sz] = polar2(phi, rc + o); addSeat(tx, tz, sx, sz, 'bentwood', 0.45); });
+    }
   });
-  // 漂流書交換台（盡頭的櫃台，沿側向，長 4.2、深 0.9）
-  const [kx, kz] = at(41.6, 0);
-  FLOOR3_TABLE_LIST.push({ id: 'bk-counter', type: 'counter', position: [kx, 0, kz], dir: H.l, w: 4.2, dd: 0.9, height: 1.05 });
-  // 沙發閱讀角：一張矮桌 + 四張單人沙發
-  const [nx, nz] = at(36.2, 0);
-  FLOOR3_TABLE_LIST.push({ id: 'bk-nook', type: 'cafe', position: [nx, 0, nz], radius: 0.45, height: 0.45 });
-  [[1.35, 0], [-1.35, 0], [0, 1.35], [0, -1.35]].forEach(([da, db]) => {
-    const [sx, sz] = at(36.2 + da, db);
-    addSeat(nx, nz, sx, sz, 'armchair', 0.42);
-  });
-  // 環形平台上的閱讀角：8 張圓桌，每張沿半徑前後各一位
-  for (let k = 0; k < 8; k += 1) {
-    const phi = RING3.phi0 + 26 + k * 36;
-    const a = (phi * PI) / 180;
-    const rc = 12.8;
-    const [tx, tz] = [r2(TREE.cx + Math.cos(a) * rc), r2(TREE.cz + Math.sin(a) * rc)];
-    FLOOR3_TABLE_LIST.push({ id: `bk-ring-${k}`, type: 'cafe', position: [tx, 0, tz], radius: 0.45, height: 0.75 });
-    [-0.94, 0.94].forEach((off) => {
-      const [sx, sz] = [r2(TREE.cx + Math.cos(a) * (rc + off)), r2(TREE.cz + Math.sin(a) * (rc + off))];
-      addSeat(tx, tz, sx, sz, 'bentwood', 0.45);
-    });
+  // 靠書牆的單人沙發（面向書架）
+  for (let k = 0; k < 12; k += 1) {
+    const phi = 10 + k * 30;
+    if (inWellBand(phi)) continue;
+    const [sx, sz] = polar2(phi, 14.35); const [tx, tz] = polar2(phi, 15.6);
+    addSeat(tx, tz, sx, sz, 'armchair', 0.42);
   }
 }
 export const FLOOR3_SEAT_LAYOUT = FLOOR3_SEAT_LIST;
