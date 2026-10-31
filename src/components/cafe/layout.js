@@ -109,10 +109,77 @@ BRANCH_ROOMS.forEach((room) => {
 export const UPPER_SEAT_LAYOUT = UPPER_SEAT_LIST;
 export const UPPER_TABLES = UPPER_TABLE_LIST;
 
-/** 座位所在樓層的地板高度（一樓 0、二樓 FLOOR2_Y） */
-export const seatFloorY = (seat) => (seat.seat_index >= UPPER_FIRST_INDEX ? FLOOR2_Y : 0);
+/* ------------------------------------------------------------------------------------------
+ * 三樓：分享書籍大廳（座位編號 88 起，只有 treehouse-hollow 這間有）
+ * 在二樓平台的正上方又有一圈中空圓弧平台（高度 FLOOR3_Y），樹壁一整圈都是書架；
+ * 平台外側的樹壁上有一個圓拱通道，通往一條更大的空心大樹枝：兩側是書架、中間是閱讀長桌，
+ * 盡頭是「漂流書交換台」與一組沙發閱讀角。從二樓平台的第二段螺旋樓梯上來。
+ * ------------------------------------------------------------------------------------------ */
+export const FLOOR3_Y = 10.44;           // 三樓地板高度（第二段樓梯 = 二樓地板 + 10 階 × 0.52）
+export const FLOOR3_FIRST_INDEX = 88;    // 三樓座位的起始編號
+// 三樓環形平台（缺口 311°–341° 是第二段樓梯）：跟二樓平台同樣的半徑，上下疊在一起
+export const RING3 = { phi0: 341.0, phi1: 671.0, ri: 10.4, ro: 15.9 };
+const BH_PHI = 235;
+export const BOOK_HALL = {
+  name: '分享書籍大廳', phi: BH_PHI, d: [Math.cos((BH_PHI * PI) / 180), Math.sin((BH_PHI * PI) / 180)], l: [-Math.sin((BH_PHI * PI) / 180), Math.cos((BH_PHI * PI) / 180)],
+  wallR: 15.9, passHalf: 1.05, hallStart: 19.0, hallHalf: 5.05, hallEnd: 40.0,
+};
+const FLOOR3_TABLE_LIST = [];
+const FLOOR3_SEAT_LIST = [];
+{
+  const H = BOOK_HALL;
+  const at = (a, b) => [r2(TREE.cx + H.d[0] * a + H.l[0] * b), r2(TREE.cz + H.d[1] * a + H.l[1] * b)];
+  const addSeat = (tx, tz, sx, sz, style, y) => {
+    FLOOR3_SEAT_LIST.push({ i: FLOOR3_FIRST_INDEX + FLOOR3_SEAT_LIST.length, x: sx, y, z: sz, rot: r4(Math.atan2(tx - sx, tz - sz)), style });
+  };
+  // 閱讀長桌 × 2（長 8、寬 1.2，沿樹枝方向），每張兩側各 4 位
+  [-1, 1].forEach((side, m) => {
+    const lat = side * 2.2;
+    const [tx, tz] = at(27.5, lat);
+    FLOOR3_TABLE_LIST.push({ id: `bk-long-${m}`, type: 'long', position: [tx, 0, tz], dir: H.d, w: 8.0, dd: 1.2, height: 0.75 });
+    [-1, 1].forEach((face) => {
+      [24.5, 26.5, 28.5, 30.5].forEach((a) => {
+        const [sx, sz] = at(a, lat + face * 0.95);
+        const [cx2, cz2] = at(a, lat);
+        addSeat(cx2, cz2, sx, sz, 'bentwood', 0.45);
+      });
+    });
+  });
+  // 漂流書交換台（盡頭的櫃台，沿側向，長 4.2、深 0.9）
+  const [kx, kz] = at(41.6, 0);
+  FLOOR3_TABLE_LIST.push({ id: 'bk-counter', type: 'counter', position: [kx, 0, kz], dir: H.l, w: 4.2, dd: 0.9, height: 1.05 });
+  // 沙發閱讀角：一張矮桌 + 四張單人沙發
+  const [nx, nz] = at(36.2, 0);
+  FLOOR3_TABLE_LIST.push({ id: 'bk-nook', type: 'cafe', position: [nx, 0, nz], radius: 0.45, height: 0.45 });
+  [[1.35, 0], [-1.35, 0], [0, 1.35], [0, -1.35]].forEach(([da, db]) => {
+    const [sx, sz] = at(36.2 + da, db);
+    addSeat(nx, nz, sx, sz, 'armchair', 0.42);
+  });
+  // 環形平台上的閱讀角：8 張圓桌，每張沿半徑前後各一位
+  for (let k = 0; k < 8; k += 1) {
+    const phi = RING3.phi0 + 26 + k * 36;
+    const a = (phi * PI) / 180;
+    const rc = 12.8;
+    const [tx, tz] = [r2(TREE.cx + Math.cos(a) * rc), r2(TREE.cz + Math.sin(a) * rc)];
+    FLOOR3_TABLE_LIST.push({ id: `bk-ring-${k}`, type: 'cafe', position: [tx, 0, tz], radius: 0.45, height: 0.75 });
+    [-0.94, 0.94].forEach((off) => {
+      const [sx, sz] = [r2(TREE.cx + Math.cos(a) * (rc + off)), r2(TREE.cz + Math.sin(a) * (rc + off))];
+      addSeat(tx, tz, sx, sz, 'bentwood', 0.45);
+    });
+  }
+}
+export const FLOOR3_SEAT_LAYOUT = FLOOR3_SEAT_LIST;
+export const FLOOR3_TABLES = FLOOR3_TABLE_LIST;
+/** 各樓層的地板高度（索引 = 樓層 0/1/2） */
+export const FLOOR_YS = [0, FLOOR2_Y, FLOOR3_Y];
 
-const STYLE_BY_INDEX = Object.fromEntries([...SEAT_LAYOUT, ...UPPER_SEAT_LAYOUT].map((s) => [s.i, s.style]));
+/** 座位所在樓層的地板高度（一樓 0、二樓 FLOOR2_Y、三樓 FLOOR3_Y） */
+export const seatFloorY = (seat) => {
+  if (seat.seat_index >= FLOOR3_FIRST_INDEX) return FLOOR3_Y;
+  return seat.seat_index >= UPPER_FIRST_INDEX ? FLOOR2_Y : 0;
+};
+
+const STYLE_BY_INDEX = Object.fromEntries([...SEAT_LAYOUT, ...UPPER_SEAT_LAYOUT, ...FLOOR3_SEAT_LAYOUT].map((s) => [s.i, s.style]));
 
 /** 跪坐（榻榻米）主題：椅面只有座墊高度，姿勢改為跪坐 */
 export const KNEEL_SEAT_Y = 0.09;
