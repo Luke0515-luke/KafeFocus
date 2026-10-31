@@ -1,4 +1,4 @@
-import { TREE, FLOOR2_Y, UPPER_SEAT_LAYOUT, UPPER_TABLES, BRANCH, BRANCH_ROOMS } from './layout';
+import { TREE, FLOOR2_Y, UPPER_SEAT_LAYOUT, UPPER_TABLES, BRANCH, BRANCH_ROOMS, BARK_PHIS } from './layout';
 
 /**
  * 精靈樹洞咖啡館的幾何資料（純資料，不含 three）：TreeDecor.jsx 畫場景、nav.js 做尋路障礙都從這裡讀，
@@ -6,9 +6,9 @@ import { TREE, FLOOR2_Y, UPPER_SEAT_LAYOUT, UPPER_TABLES, BRANCH, BRANCH_ROOMS }
  *   一樓：整個苔蘚地面（半徑 GROUND_R 的圓）都能走，原本的 18 × 14 木平台只是其中一塊。
  *   樓梯：原本沿樹壁往上盤旋的樓梯，前 9 階（STAIR.count）現在是真的能走的路，通到二樓。
  *   二樓：貼著樹壁的一圈中空圓弧平台 UPPER（缺口是樓梯；角度單位：度；x = cx + r·cosφ，z = cz + r·sinφ），
- *         平台外側的樹壁上有圓拱通道（BRANCH_ROOMS），每條通往一間懸在樹幹外面的圓形樹枝咖啡廳。
+ *         平台外側的樹壁上有圓拱通道（BRANCH_ROOMS），每條通往一整條長在樹幹外面的空心大樹枝（樹枝咖啡廳）；BARK_PHIS 是被樹皮封住的圓拱。
  */
-export { TREE, FLOOR2_Y, UPPER_SEAT_LAYOUT, UPPER_TABLES, BRANCH, BRANCH_ROOMS };
+export { TREE, FLOOR2_Y, UPPER_SEAT_LAYOUT, UPPER_TABLES, BRANCH, BRANCH_ROOMS, BARK_PHIS };
 
 export const GROUND_R = 12.0;                                   // 一樓可走範圍的半徑（以樹心為圓心）
 // 圓弧平台從 188° 繞一圈到 158°（=518°），158°–188° 是缺口，樓梯從那裡爬上來
@@ -79,8 +79,9 @@ export function insideUpperRegion(x, z, wall = 0.45) {
   for (const b of BRANCH_ROOMS) {
     const along = dx * b.d[0] + dz * b.d[1];
     const lat = dx * b.l[0] + dz * b.l[1];
-    if (along >= UPPER.ro - 0.6 && along <= BRANCH.roomCenterR - BRANCH.roomR + 0.6 && Math.abs(lat) <= BRANCH.tunnelHalf - 0.25) return true;
-    if (Math.hypot(x - b.c[0], z - b.c[1]) <= BRANCH.roomR - wall) return true;
+    if (along >= UPPER.ro - 0.6 && along <= BRANCH.hallStart + 0.6 && Math.abs(lat) <= BRANCH.passHalf - 0.25) return true;          // 通道
+    if (along >= BRANCH.hallStart && along <= BRANCH.hallEnd && Math.abs(lat) <= BRANCH.hallHalf - wall) return true;                 // 樹枝本體
+    if (Math.hypot(along - BRANCH.hallEnd, lat) <= BRANCH.hallHalf - wall) return true;                                              // 尾端半圓
   }
   return false;
 }
