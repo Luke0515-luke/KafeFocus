@@ -1,4 +1,7 @@
-import { TREE, FLOOR2_Y, UPPER_SEAT_LAYOUT, UPPER_TABLES, BRANCH, BRANCH_ROOMS, BARK_PHIS } from './layout';
+import {
+  TREE, FLOOR2_Y, FLOOR3_Y, UPPER_SEAT_LAYOUT, UPPER_TABLES, BRANCH, BRANCH_ROOMS, BARK_PHIS,
+  RING3, BOOK_HALL, FLOOR3_SEAT_LAYOUT, FLOOR3_TABLES,
+} from './layout';
 
 /**
  * 精靈樹洞咖啡館的幾何資料（純資料，不含 three）：TreeDecor.jsx 畫場景、nav.js 做尋路障礙都從這裡讀，
@@ -8,12 +11,19 @@ import { TREE, FLOOR2_Y, UPPER_SEAT_LAYOUT, UPPER_TABLES, BRANCH, BRANCH_ROOMS, 
  *   二樓：貼著樹壁的一圈中空圓弧平台 UPPER（缺口是樓梯；角度單位：度；x = cx + r·cosφ，z = cz + r·sinφ），
  *         平台外側的樹壁上有圓拱通道（BRANCH_ROOMS），每條通往一整條長在樹幹外面的空心大樹枝（樹枝咖啡廳）；BARK_PHIS 是被樹皮封住的圓拱。
  */
-export { TREE, FLOOR2_Y, UPPER_SEAT_LAYOUT, UPPER_TABLES, BRANCH, BRANCH_ROOMS, BARK_PHIS };
+export {
+  TREE, FLOOR2_Y, FLOOR3_Y, UPPER_SEAT_LAYOUT, UPPER_TABLES, BRANCH, BRANCH_ROOMS, BARK_PHIS,
+  BOOK_HALL, FLOOR3_SEAT_LAYOUT, FLOOR3_TABLES,
+};
 
 export const GROUND_R = 12.0;                                   // 一樓可走範圍的半徑（以樹心為圓心）
 // 圓弧平台從 188° 繞一圈到 158°（=518°），158°–188° 是缺口，樓梯從那裡爬上來
-export const UPPER = { phi0: 188, phi1: 518, ri: 11.0, ro: 15.9, thick: 0.3 };
+export const UPPER = { phi0: 188, phi1: 518, ri: 10.4, ro: 15.9, thick: 0.3 };
+// 三樓環形平台（在二樓平台正上方；缺口是第二段樓梯）
+export const UPPER3 = { ...RING3, thick: 0.3 };
 export const STAIR = { r: 13.4, w: 2.2, phi0: 165, dphi: 2.9, count: 9, y0: 0.56, rise: 0.52 };
+// 第二段樓梯：從二樓平台往上盤旋到三樓（比較窄，二樓平台兩側還能走）
+export const STAIR2 = { r: 13.4, w: 1.6, phi0: 318, dphi: 2.9, count: 9, y0: FLOOR2_Y + 0.52, rise: 0.52 };
 
 const rad = (deg) => (deg * Math.PI) / 180;
 export const polar = (phiDeg, r, y = 0) => [TREE.cx + Math.cos(rad(phiDeg)) * r, y, TREE.cz + Math.sin(rad(phiDeg)) * r];
@@ -36,6 +46,15 @@ const TOP = (() => { const [x, , z] = polar(STAIR.phi0 + STAIR.count * STAIR.dph
 export const STAIR_MOUTH = MOUTH;
 export const STAIR_TOP = TOP;
 export const STAIR_PATH = [...STAIR_STEPS.map((s) => ({ x: s.x, z: s.z, y: s.y })), TOP];
+
+export const STAIR2_STEPS = Array.from({ length: STAIR2.count }, (_, i) => {
+  const phi = STAIR2.phi0 + i * STAIR2.dphi;
+  const [x, , z] = polar(phi, STAIR2.r);
+  return { i, phi, x, z, y: STAIR2.y0 + i * STAIR2.rise };
+});
+export const STAIR2_MOUTH = (() => { const [x, , z] = polar(STAIR2.phi0 - 7, STAIR2.r); return { x, z, y: FLOOR2_Y }; })();
+export const STAIR2_TOP = (() => { const [x, , z] = polar(STAIR2.phi0 + STAIR2.count * STAIR2.dphi, STAIR2.r); return { x, z, y: FLOOR3_Y }; })();
+export const STAIR2_PATH = [...STAIR2_STEPS.map((s) => ({ x: s.x, z: s.z, y: s.y })), STAIR2_TOP];
 
 /**
  * 發光大蘑菇的位置（原本在 TreeDecor 裡，用同一組亂數種子，所以畫面不變）。
@@ -61,27 +80,47 @@ export function mushroomObstacles() {
   return mushroomSpots().map((m) => ({ x: m.p[0], z: m.p[2], r: m.s >= 1.8 ? 0.3 * m.s : 0.85 * m.s * 0.95 }));
 }
 
+const norm360 = (phi, from) => { let p = phi; while (p < from) p += 360; return p; };
+
+/** 圓弧平台（缺口在 phi1 與 phi0 之間）的內部判斷：離邊緣至少 wall */
+function inRing(ring, dx, dz, wall) {
+  const r = Math.hypot(dx, dz);
+  if (r < ring.ri + wall || r > ring.ro - 0.3) return false;
+  const phi = norm360((Math.atan2(dz, dx) * 180) / Math.PI, ring.phi0);
+  if (phi > ring.phi1) return false;
+  const d0 = Math.min(rad(phi - ring.phi0), Math.PI / 2); const d1 = Math.min(rad(ring.phi1 - phi), Math.PI / 2);
+  return r * Math.sin(d0) >= 0.3 && r * Math.sin(d1) >= wall;
+}
+
+/** 通道 + 樹枝本體 + 尾端半圓（hall：{ d, l, passHalf, hallStart, hallEnd, hallHalf }） */
+function inHall(hall, dx, dz, wall) {
+  const along = dx * hall.d[0] + dz * hall.d[1];
+  const lat = dx * hall.l[0] + dz * hall.l[1];
+  if (along >= UPPER.ro - 0.6 && along <= hall.hallStart + 0.6 && Math.abs(lat) <= hall.passHalf - 0.25) return true;
+  if (along >= hall.hallStart && along <= hall.hallEnd && Math.abs(lat) <= hall.hallHalf - wall) return true;
+  return Math.hypot(along - hall.hallEnd, lat) <= hall.hallHalf - wall;
+}
+
+/** 第二段樓梯在二樓平台上佔的位置（踏階之上不能走；樓梯口在它前面） */
+function inStair2Footprint(dx, dz) {
+  const r = Math.hypot(dx, dz);
+  if (r < STAIR2.r - STAIR2.w / 2 - 0.45 || r > STAIR2.r + STAIR2.w / 2 + 0.45) return false;
+  const phi = norm360((Math.atan2(dz, dx) * 180) / Math.PI, STAIR2.phi0 - 10);
+  return phi >= STAIR2.phi0 - 2.2 && phi <= STAIR2.phi0 + (STAIR2.count - 1) * STAIR2.dphi + 0.5;
+}
+
 /**
- * 二樓（第 1 層）可以站的地方：圓弧平台 ∪ 各條通道 ∪ 各間圓房間（都離邊緣至少 wall）。
+ * 二樓（第 1 層）可以站的地方：圓弧平台（扣掉第二段樓梯佔的位置）∪ 各條通道與樹枝（樹枝咖啡廳）。
  * nav.js 用它切格子，畫面（TreeDecor）的幾何和它對得上。
  */
 export function insideUpperRegion(x, z, wall = 0.45) {
   const dx = x - TREE.cx; const dz = z - TREE.cz;
-  const r = Math.hypot(dx, dz);
-  if (r >= UPPER.ri + wall && r <= UPPER.ro - 0.3) {
-    let phi = (Math.atan2(dz, dx) * 180) / Math.PI;
-    while (phi < UPPER.phi0) phi += 360;
-    if (phi <= UPPER.phi1) {
-      const d0 = Math.min(rad(phi - UPPER.phi0), Math.PI / 2); const d1 = Math.min(rad(UPPER.phi1 - phi), Math.PI / 2);
-      if (r * Math.sin(d0) >= 0.3 && r * Math.sin(d1) >= wall) return true;
-    }
-  }
-  for (const b of BRANCH_ROOMS) {
-    const along = dx * b.d[0] + dz * b.d[1];
-    const lat = dx * b.l[0] + dz * b.l[1];
-    if (along >= UPPER.ro - 0.6 && along <= BRANCH.hallStart + 0.6 && Math.abs(lat) <= BRANCH.passHalf - 0.25) return true;          // 通道
-    if (along >= BRANCH.hallStart && along <= BRANCH.hallEnd && Math.abs(lat) <= BRANCH.hallHalf - wall) return true;                 // 樹枝本體
-    if (Math.hypot(along - BRANCH.hallEnd, lat) <= BRANCH.hallHalf - wall) return true;                                              // 尾端半圓
-  }
-  return false;
+  if (inRing(UPPER, dx, dz, wall) && !inStair2Footprint(dx, dz)) return true;
+  return BRANCH_ROOMS.some((b) => inHall({ ...BRANCH, d: b.d, l: b.l }, dx, dz, wall));
+}
+
+/** 三樓（第 2 層）可以站的地方：環形平台 ∪ 通往分享書籍大廳的通道與大樹枝 */
+export function insideFloor3Region(x, z, wall = 0.45) {
+  const dx = x - TREE.cx; const dz = z - TREE.cz;
+  return inRing(UPPER3, dx, dz, wall) || inHall(BOOK_HALL, dx, dz, wall);
 }
