@@ -244,7 +244,7 @@ function Roots() {
 
 /* ---------------- 發光的巨大蘑菇 ---------------- */
 const MUSH = [['#4de3ff', '#9ff3ff'], ['#ff7ad0', '#ffb8e6'], ['#ffb347', '#ffd9a0'], ['#8dff8a', '#c8ffc6']];
-function Mushroom({ position, s = 1, c }) {
+function Mushroom({ position, s = 1, c = MUSH[0] }) {   // c 沒給（或索引算錯）時用預設顏色，避免整個場景崩潰變黑屏
   return (
     <group position={position} scale={s}>
       <mesh position={[0, 0.55, 0]} castShadow><cylinderGeometry args={[0.18, 0.28, 1.1, 12]} /><meshStandardMaterial color="#efe3c8" roughness={0.8} /></mesh>
@@ -561,8 +561,8 @@ function UpperTable({ t, floorY }) {
               <mesh key={sd} position={[sd * (t.w / 2 - 0.45), (h - 0.08) / 2, 0]} castShadow><boxGeometry args={[0.14, h - 0.08, t.dd * 0.8]} /><meshStandardMaterial color="#4a3320" roughness={0.95} /></mesh>
             ))}
             <mesh position={[0, 0.25, 0]}><boxGeometry args={[t.w - 0.9, 0.06, 0.1]} /><meshStandardMaterial color="#4a3320" roughness={0.95} /></mesh>
-            {[-2.4, 0, 2.4].map((dx) => (
-              <Mushroom key={dx} position={[dx, h, 0.1]} s={0.11} c={MUSH[(Math.round(dx * 3) + 4) % 4]} />
+            {[-2.4, 0, 2.4].map((dx, k) => (
+              <Mushroom key={dx} position={[dx, h, 0.1]} s={0.11} c={MUSH[(k + 1) % 4]} />
             ))}
           </>
         )}
