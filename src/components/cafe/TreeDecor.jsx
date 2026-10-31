@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
-  TREE, FLOOR2_Y, GROUND_R, UPPER, STAIR, STAIR_STEPS, STAIR_MOUTH, STAIR_TOP, UPPER_TABLES, BRANCH, BRANCH_ROOMS,
+  TREE, FLOOR2_Y, GROUND_R, UPPER, STAIR, STAIR_STEPS, STAIR_MOUTH, STAIR_TOP, UPPER_TABLES, BRANCH, BRANCH_ROOMS, BARK_PHIS,
   polar, rngFactory, mushroomSpots,
 } from './treeLayout';
 
@@ -13,8 +13,8 @@ import {
  * 咖啡廳的桌椅在原本的 18 × 14 木頭平台上（座位座標不變），整個苔蘚地面（半徑 12）都可以走動。
  *
  * 二樓「樹枝咖啡廳」：螺旋樓梯的前 9 階通到貼著樹壁的一圈中空圓弧平台（高度 FLOOR2_Y，中間看得到一樓）；
- * 平台外側的樹壁上有 4 個圓拱通道（樹枝），各通往一間懸在樹幹外面的圓形樹枝咖啡廳（每間 2 張圓桌、4 個座位，
- * 座標在 layout.js 的 UPPER_SEAT_LAYOUT）。
+ * 平台外側的樹壁上有 4 個圓拱通道，各通往一整條長在樹幹外面的空心大樹枝（樹枝咖啡廳，每條 7 張圓桌、16 個座位，
+ * 座標在 layout.js 的 UPPER_SEAT_LAYOUT），樹枝的樹皮牆上有圓窗，窗外是森林；另有 4 個圓拱被樹皮封住。
  * 幾何資料（樓梯、平台、通道、蘑菇）在 treeLayout.js，nav.js 也用同一份資料做尋路。
  */
 export { TREE };
@@ -406,29 +406,27 @@ function UpperDeck() {
   );
 }
 
-/** 二樓地板的點擊區（透明）：環形平台 + 通道 + 圓房間。點到就走過去，不在二樓會先走上樓梯。由 CafeScene 放進場景。 */
+/** 二樓地板的點擊區（透明）：環形平台 + 通道 + 樹枝。點到就走過去，不在二樓會先走上樓梯。由 CafeScene 放進場景。 */
 export function UpperFloorClickPlane({ onFloorClick }) {
   const ringGeo = useMemo(() => new THREE.ShapeGeometry(sectorShape(UPPER.ri, UPPER.ro, UPPER.phi0, UPPER.phi1, 160)), []);
-  const tunLen = BRANCH.roomCenterR - BRANCH.roomR + 0.6 - (UPPER.ro - 0.6);
-  const tunMid = (UPPER.ro - 0.6 + BRANCH.roomCenterR - BRANCH.roomR + 0.6) / 2;
   const click = (e) => { if (e.delta > 6) return; e.stopPropagation(); onFloorClick(e.point.x, e.point.z, FLOOR2_Y); };
   const y = FLOOR2_Y + 0.02;
+  const passA = UPPER.ro - 0.6; const passB = BRANCH.hallStart + 0.6;
+  const hallLen = BRANCH.hallEnd - BRANCH.hallStart;
+  const mat = <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />;
   return (
     <group>
-      <mesh geometry={ringGeo} rotation={[-Math.PI / 2, 0, 0]} position={[TREE.cx, y, TREE.cz]} onClick={click}>
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
-      </mesh>
+      <mesh geometry={ringGeo} rotation={[-Math.PI / 2, 0, 0]} position={[TREE.cx, y, TREE.cz]} onClick={click}>{mat}</mesh>
       {BRANCH_ROOMS.map((b) => (
-        <group key={b.k}>
-          <group position={[...polar(b.phi, tunMid, y)]} rotation={[0, Math.PI / 2 - rad(b.phi), 0]}>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} onClick={click}>
-              <planeGeometry args={[BRANCH.tunnelHalf * 2, tunLen]} />
-              <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
-            </mesh>
-          </group>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[b.c[0], y, b.c[1]]} onClick={click}>
-            <circleGeometry args={[BRANCH.roomR, 40]} />
-            <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+        <group key={b.k} position={[TREE.cx, y, TREE.cz]} rotation={[0, Math.PI / 2 - rad(b.phi), 0]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, (passA + passB) / 2]} onClick={click}>
+            <planeGeometry args={[BRANCH.passHalf * 2, passB - passA]} />{mat}
+          </mesh>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, BRANCH.hallStart + hallLen / 2]} onClick={click}>
+            <planeGeometry args={[BRANCH.hallHalf * 2, hallLen]} />{mat}
+          </mesh>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, BRANCH.hallEnd]} onClick={click}>
+            <circleGeometry args={[BRANCH.hallHalf, 40]} />{mat}
           </mesh>
         </group>
       ))}
@@ -569,69 +567,227 @@ function ArchSign({ phi, name }) {
 }
 
 /**
- * 樹壁上的圓拱通道（樹枝）+ 通往樹幹外面的圓形樹枝咖啡廳。
- * 樹壁上的洞由 Trunk 的 alphaMap 挖出來；通道是圓柱管、房間是半球形樹瘤（只畫內側，所以從外面看像是剖開的）。
+ * 樹壁上的圓拱通道 + 一整條長在樹幹外面的空心大樹枝（樹枝咖啡廳）。
+ *   - 樹壁上的洞由 Trunk 的 alphaMap 挖出來；通道是圓柱管，後面接一條半徑 HALL_R 的空心樹枝（圓柱 + 尾端半球）。
+ *   - 樹枝的樹皮牆面也用 alphaMap 挖出圓形窗戶（兩側各 4 扇 + 頂上 2 扇天窗），窗外是 ForestOutside 的森林。
+ *   - 只畫樹皮的內側，所以從外面看像是被剖開的（看得到裡面）。
  * 桌子與椅子的座標在 layout.js（UPPER_TABLES / UPPER_SEAT_LAYOUT）。
  */
+const LEAF_GREENS = ['#4f8a3c', '#5c9a45', '#3f7a35', '#6aa84f', '#7bb85a'];
+const HALL_R = 5.0;      // 樹枝內半徑
+const HALL_CY = 2.0;     // 樹枝中心線比地板高多少
+const WIN_R = 1.0;       // 窗戶半徑
+const WIN_ALONG = [0.12, 0.37, 0.62, 0.87];   // 窗戶在樹枝長度上的位置（0–1）
+
 function BranchCafes() {
-  const bark = useCanvasTexture(drawBark, 512, 512, [3, 1.5]);
+  const bark = useCanvasTexture(drawBark, 512, 512, [4, 2]);
   const planks = useCanvasTexture(drawPlanks, 256, 256, [1.2, 1.2]);
-  const x0 = UPPER.ro - 0.2; const x1 = BRANCH.roomCenterR - BRANCH.roomR + 0.9;   // 通道沿「朝外」方向的範圍
-  const len = x1 - x0; const mid = (x0 + x1) / 2;
-  const thetaMax = Math.acos(-1.5 / 4.75);                                         // 半球形樹瘤：只做地板以上的部分
-  const rim = useMemo(() => Array.from({ length: 11 }, (_, i) => (i / 11) * Math.PI * 2), []);
+  const hallLen = BRANCH.hallEnd - BRANCH.hallStart;
+  const hallMid = BRANCH.hallStart + hallLen / 2;
+  const floorHalf = Math.sqrt(HALL_R * HALL_R - HALL_CY * HALL_CY);                 // 樹枝在地板高度的半寬
+  const passA = UPPER.ro - 0.2; const passB = BRANCH.hallStart + 0.3;
+  const circ = 2 * Math.PI * HALL_R;
+  // 樹枝牆面上的窗戶：u 對應繞圓周的角度（0.25 / 0.75 = 左右兩側、0.5 = 頂端），v 對應沿樹枝的長度
+  const winMap = useCanvasTexture((g, W, H) => {
+    g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#000';
+    const hole = (u, v, r) => {
+      const rx = (r / circ) * W; const ry = (r / hallLen) * H;
+      g.beginPath(); g.ellipse(u * W, (1 - v) * H, rx, ry, 0, 0, Math.PI * 2); g.fill();
+    };
+    WIN_ALONG.forEach((t) => { hole(0.25, t, WIN_R); hole(0.75, t, WIN_R); });
+    hole(0.5, 0.3, 0.8); hole(0.5, 0.75, 0.8);
+  }, 1024, 512);
+  const twigs = useMemo(() => {
+    const rnd = rngFactory(909);
+    const out = [];
+    WIN_ALONG.forEach((t, i) => [-1, 1].forEach((side) => {
+      const a = BRANCH.hallStart + t * hallLen + (i % 2 ? 1.6 : -1.6);       // 窗戶旁邊的小樹枝（從窗戶看得到葉子）
+      const pts = [
+        new THREE.Vector3(side * (HALL_R + 0.1), HALL_CY + 0.6, a),
+        new THREE.Vector3(side * (HALL_R + 1.6), HALL_CY + 1.4, a + (rnd() - 0.5) * 1.2),
+        new THREE.Vector3(side * (HALL_R + 3.2), HALL_CY + 1.1 + rnd(), a + (rnd() - 0.5) * 2),
+      ];
+      const curve = new THREE.CatmullRomCurve3(pts);
+      const end = pts[2];
+      const leaves = Array.from({ length: 4 }, () => ({
+        p: [end.x + (rnd() - 0.5) * 1.6, end.y + (rnd() - 0.3) * 1.0, end.z + (rnd() - 0.5) * 1.6],
+        s: 0.5 + rnd() * 0.6, c: LEAF_GREENS[Math.floor(rnd() * LEAF_GREENS.length)],
+      }));
+      out.push({ curve, leaves });
+    }));
+    return out;
+  }, [hallLen]);
   return (
     <group>
       {BRANCH_ROOMS.map((b) => {
         const rotY = Math.PI / 2 - rad(b.phi);
-        const [cx, , cz] = [b.c[0], 0, b.c[1]];
         return (
           <group key={b.k}>
-            {/* 洞口的樹皮拱框 */}
+            {/* 洞口的樹皮拱框 + 名字牌 */}
             <group position={[...polar(b.phi, TREE.R - 0.12, FLOOR2_Y + 1.2)]} rotation={[0, rotY, 0]}>
               <mesh castShadow><torusGeometry args={[1.66, 0.2, 10, 40]} /><meshStandardMaterial color="#4a3120" roughness={1} /></mesh>
             </group>
             <ArchSign phi={b.phi} name={b.name} />
-            {/* 通道 */}
-            <group position={[...polar(b.phi, mid, FLOOR2_Y + 1.2)]} rotation={[0, rotY, 0]}>
-              <mesh rotation={[Math.PI / 2, 0, 0]}>
-                <cylinderGeometry args={[1.6, 1.6, len, 28, 1, true]} />
-                <meshStandardMaterial map={bark} side={THREE.BackSide} roughness={1} />
+            {/* 以樹心為原點：local Z = 朝外、local X = 側向、local Y = 高度（0 = 二樓地板） */}
+            <group position={[TREE.cx, FLOOR2_Y, TREE.cz]} rotation={[0, rotY, 0]}>
+              {/* 通道 */}
+              <group position={[0, 1.2, (passA + passB) / 2]}>
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                  <cylinderGeometry args={[1.6, 1.6, passB - passA, 28, 1, true]} />
+                  <meshStandardMaterial map={bark} side={THREE.BackSide} roughness={1} />
+                </mesh>
+                <mesh position={[0, -1.4, 0]} receiveShadow>
+                  <boxGeometry args={[2.2, 0.4, passB - passA]} />
+                  <meshStandardMaterial map={planks} roughness={0.85} />
+                </mesh>
+              </group>
+              {/* 空心大樹枝：樹皮牆面（有窗）+ 尾端半球 + 入口牆 + 木地板 */}
+              <mesh position={[0, HALL_CY, hallMid]} rotation={[Math.PI / 2, 0, 0]}>
+                <cylinderGeometry args={[HALL_R, HALL_R, hallLen, 48, 1, true]} />
+                <meshStandardMaterial map={bark} alphaMap={winMap} alphaTest={0.5} side={THREE.BackSide} roughness={1} emissive="#3a2410" emissiveIntensity={0.35} />
               </mesh>
-              <mesh position={[0, -1.4, 0]} receiveShadow>
-                <boxGeometry args={[2.2, 0.4, len]} />
+              <mesh position={[0, HALL_CY, BRANCH.hallEnd]} rotation={[Math.PI / 2, 0, 0]}>
+                <sphereGeometry args={[HALL_R, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2]} />
+                <meshStandardMaterial map={bark} side={THREE.BackSide} roughness={1} emissive="#3a2410" emissiveIntensity={0.35} />
+              </mesh>
+              <mesh position={[0, HALL_CY, BRANCH.hallStart]}>
+                <ringGeometry args={[1.6, HALL_R + 0.1, 48]} />
+                <meshStandardMaterial map={bark} side={THREE.DoubleSide} roughness={1} emissive="#3a2410" emissiveIntensity={0.3} />
+              </mesh>
+              <mesh position={[0, -0.25, hallMid]} castShadow receiveShadow>
+                <boxGeometry args={[floorHalf * 2, 0.5, hallLen]} />
                 <meshStandardMaterial map={planks} roughness={0.85} />
               </mesh>
-            </group>
-            {/* 圓形樹枝咖啡廳 */}
-            <mesh position={[cx, FLOOR2_Y + 1.5, cz]}>
-              <sphereGeometry args={[4.75, 40, 28, 0, Math.PI * 2, 0, thetaMax]} />
-              <meshStandardMaterial map={bark} side={THREE.BackSide} roughness={1} emissive="#3a2410" emissiveIntensity={0.35} />
-            </mesh>
-            <mesh position={[cx, FLOOR2_Y - 0.15, cz]} castShadow receiveShadow>
-              <cylinderGeometry args={[BRANCH.roomR, BRANCH.roomR, 0.3, 48]} />
-              <meshStandardMaterial map={planks} roughness={0.85} />
-            </mesh>
-            <mesh position={[cx, FLOOR2_Y + 0.06, cz]} rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[BRANCH.roomR - 0.05, 0.1, 8, 56]} />
-              <meshStandardMaterial color="#4a3320" roughness={0.95} />
-            </mesh>
-            {/* 房間裡的氣氛：吊燈、一圈小燈泡、發光小蘑菇、點光源（放在通道口，順便照亮外圈平台） */}
-            <mesh position={[cx, FLOOR2_Y + 3.6, cz]} scale={[1, 1.25, 1]}><sphereGeometry args={[0.3, 16, 12]} /><meshBasicMaterial color="#ffd27a" toneMapped={false} /></mesh>
-            <mesh position={[cx, FLOOR2_Y + 4.35, cz]}><cylinderGeometry args={[0.012, 0.012, 1.4, 5]} /><meshStandardMaterial color="#2a4a2a" roughness={1} /></mesh>
-            {rim.map((a, i) => (
-              <mesh key={i} position={[cx + Math.cos(a) * 3.9, FLOOR2_Y + 2.0 + Math.sin(a * 3) * 0.2, cz + Math.sin(a) * 3.9]}>
-                <sphereGeometry args={[0.07, 8, 6]} />
-                <meshBasicMaterial color={i % 2 ? '#ffe6a0' : '#ffd27a'} toneMapped={false} />
+              <mesh position={[0, -0.25, BRANCH.hallEnd]} castShadow receiveShadow>
+                <cylinderGeometry args={[floorHalf, floorHalf, 0.5, 40]} />
+                <meshStandardMaterial map={planks} roughness={0.85} />
               </mesh>
-            ))}
-            {[0.7, 2.3, 4.2].map((a, i) => (
-              <Mushroom key={i} position={[cx + Math.cos(a + b.phi) * 3.5, FLOOR2_Y, cz + Math.sin(a + b.phi) * 3.5]} s={0.3 + i * 0.05} c={MUSH[(b.k + i) % 4]} />
-            ))}
-            <pointLight position={[...polar(b.phi, BRANCH.roomCenterR - 6.5, FLOOR2_Y + 2.6)]} color="#ffd68a" intensity={26} distance={15} decay={2} />
+              {/* 窗框 */}
+              {WIN_ALONG.map((t) => [-1, 1].map((side) => (
+                <mesh key={`${t}${side}`} position={[side * (HALL_R - 0.03), HALL_CY, BRANCH.hallStart + t * hallLen]} rotation={[0, Math.PI / 2, 0]}>
+                  <torusGeometry args={[WIN_R + 0.05, 0.09, 8, 32]} />
+                  <meshStandardMaterial color="#4a3120" roughness={1} />
+                </mesh>
+              )))}
+              {[0.3, 0.75].map((t) => (
+                <mesh key={`sky${t}`} position={[0, HALL_CY + HALL_R - 0.03, BRANCH.hallStart + t * hallLen]} rotation={[Math.PI / 2, 0, 0]}>
+                  <torusGeometry args={[0.85, 0.08, 8, 28]} />
+                  <meshStandardMaterial color="#4a3120" roughness={1} />
+                </mesh>
+              ))}
+              {/* 窗外的小樹枝與葉子 */}
+              {twigs.map((tw, i) => (
+                <group key={i}>
+                  <mesh><tubeGeometry args={[tw.curve, 10, 0.1, 6, false]} /><meshStandardMaterial color="#4a3120" roughness={1} /></mesh>
+                  {tw.leaves.map((l, k) => (
+                    <mesh key={k} position={l.p} scale={[l.s * 1.4, l.s * 0.8, l.s * 1.4]}>
+                      <icosahedronGeometry args={[0.55, 0]} />
+                      <meshStandardMaterial color={l.c} roughness={0.9} flatShading emissive={l.c} emissiveIntensity={0.12} />
+                    </mesh>
+                  ))}
+                </group>
+              ))}
+              {/* 樹枝裡的氣氛：樹脊上吊的燈籠、牆邊發光小蘑菇、一盞點光源 */}
+              {[0, 1, 2, 3].map((k) => {
+                const a = BRANCH.hallStart + 3.2 + k * 4.2;
+                return (
+                  <group key={k} position={[0, HALL_CY + HALL_R - 0.4, a]}>
+                    <mesh position={[0, -0.6, 0]}><cylinderGeometry args={[0.012, 0.012, 1.2, 5]} /><meshStandardMaterial color="#2a4a2a" roughness={1} /></mesh>
+                    <mesh position={[0, -1.3, 0]} scale={[1, 1.25, 1]}><sphereGeometry args={[0.28, 16, 12]} /><meshBasicMaterial color={k % 2 ? '#ffe6a0' : '#ffd27a'} toneMapped={false} /></mesh>
+                    <mesh position={[0, -0.95, 0]}><coneGeometry args={[0.22, 0.24, 8]} /><meshStandardMaterial color="#3d6a3a" roughness={0.8} /></mesh>
+                  </group>
+                );
+              })}
+              {[24.5, 29, 33].map((a, i) => [-1, 1].map((side) => (
+                <Mushroom key={`${a}${side}`} position={[side * 3.95, 0, a]} s={0.26 + (i % 2) * 0.08} c={MUSH[(b.k + i) % 4]} />
+              )))}
+              <pointLight position={[0, 3.4, 25.5]} color="#ffd68a" intensity={30} distance={19} decay={2} />
+            </group>
           </group>
         );
       })}
+    </group>
+  );
+}
+
+/** 被樹皮封住的圓拱：只有拱框和一塊鼓起來的樹皮（還長了苔蘚與藤蔓），進不去 */
+function BarkPlugs() {
+  const bark = useCanvasTexture(drawBark, 512, 512, [1.5, 1.5]);
+  return (
+    <group>
+      {BARK_PHIS.map((phi, i) => {
+        const [x, y, z] = polar(phi, TREE.R - 0.3, FLOOR2_Y + 1.2);
+        const rot = faceCenter(x, z);
+        return (
+          <group key={phi} position={[x, y, z]} rotation={[0, rot, 0]}>
+            <mesh scale={[1, 1, 0.42]} castShadow>
+              <sphereGeometry args={[1.62, 28, 18]} />
+              <meshStandardMaterial map={bark} roughness={1} />
+            </mesh>
+            <mesh position={[0, 0, 0.1]} castShadow><torusGeometry args={[1.66, 0.2, 10, 40]} /><meshStandardMaterial color="#3d2815" roughness={1} /></mesh>
+            {/* 苔蘚塊與垂下來的藤蔓 */}
+            {[[-0.7, 0.9, 0.55], [0.5, 1.1, 0.5], [0.9, -0.3, 0.55], [-0.9, -0.6, 0.5]].map(([dx, dy, dz], k) => (
+              <mesh key={k} position={[dx, dy, dz]} scale={[0.5 + (k % 2) * 0.2, 0.28, 0.2]}>
+                <icosahedronGeometry args={[0.6, 1]} />
+                <meshStandardMaterial color={k % 2 ? '#4f8a3c' : '#3f7a35'} roughness={1} flatShading />
+              </mesh>
+            ))}
+            {[-0.8, -0.2, 0.55].map((dx, k) => (
+              <mesh key={`v${k}`} position={[dx, 0.9 - (k + i) % 2 * 0.3 - 0.9, 0.6]}>
+                <cylinderGeometry args={[0.02, 0.02, 1.8 + k * 0.3, 5]} />
+                <meshStandardMaterial color="#2f5a2a" roughness={1} />
+              </mesh>
+            ))}
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+/** 樹幹外面的森林（只有從樹枝咖啡廳的窗戶才看得到）：遠處的大樹幹、成團的樹冠葉叢，腳下是很深的森林地面 */
+function ForestOutside() {
+  const { trunks, blobs } = useMemo(() => {
+    const rnd = rngFactory(808);
+    const nearHall = (x, z, pad) => BRANCH_ROOMS.some((b) => {
+      const dx = x - TREE.cx; const dz = z - TREE.cz;
+      const along = dx * b.d[0] + dz * b.d[1]; const lat = dx * b.l[0] + dz * b.l[1];
+      return along > 10 && along < 46 && Math.abs(lat) < pad;
+    });
+    const trunks = []; const blobs = [];
+    for (let i = 0; i < 40 && trunks.length < 16; i += 1) {
+      const a = rnd() * Math.PI * 2; const r = 52 + rnd() * 42; const rr = 2.5 + rnd() * 3.5;
+      const x = TREE.cx + Math.cos(a) * r; const z = TREE.cz + Math.sin(a) * r;
+      if (nearHall(x, z, rr + 8)) continue;
+      trunks.push({ x, z, r: rr, c: i % 2 ? '#2b2118' : '#33261b' });
+    }
+    for (let i = 0; i < 220 && blobs.length < 70; i += 1) {
+      const a = rnd() * Math.PI * 2; const r = 26 + rnd() * 66; const y = -6 + rnd() * 30; const s = 5 + rnd() * 7;
+      const x = TREE.cx + Math.cos(a) * r; const z = TREE.cz + Math.sin(a) * r;
+      if (nearHall(x, z, s + 7) && y > -3 && y < 18) continue;
+      blobs.push({ x, y, z, s, c: ['#2f5a2a', '#3a6b30', '#27502a', '#356636'][i % 4] });
+    }
+    return { trunks, blobs };
+  }, []);
+  return (
+    <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[TREE.cx, -30, TREE.cz]}>
+        <circleGeometry args={[240, 40]} />
+        <meshStandardMaterial color="#0c1a14" roughness={1} />
+      </mesh>
+      {trunks.map((t, i) => (
+        <mesh key={i} position={[t.x, 10, t.z]}>
+          <cylinderGeometry args={[t.r * 0.9, t.r, 100, 14]} />
+          <meshStandardMaterial color={t.c} roughness={1} />
+        </mesh>
+      ))}
+      {blobs.map((b, i) => (
+        <mesh key={i} position={[b.x, b.y, b.z]} scale={[b.s, b.s * 0.6, b.s]}>
+          <icosahedronGeometry args={[1, 1]} />
+          <meshStandardMaterial color={b.c} roughness={1} flatShading emissive={b.c} emissiveIntensity={0.08} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -727,6 +883,8 @@ export function TreeDecor() {
       <UpperRailings />
       <UpperTables />
       <BranchCafes />
+      <BarkPlugs />
+      <ForestOutside />
     </group>
   );
 }
