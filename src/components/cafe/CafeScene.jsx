@@ -7,8 +7,8 @@ import UserAvatar3D, { preloadAvatar } from './UserAvatar3D';
 import WalkersLayer from './WalkersLayer';
 import { THEMES } from '../../config/themes';
 import { PaletteContext, makePalette } from './palette';
-import { TREE, UpperFloorClickPlane, StairClickZones } from './TreeDecor';
-import { FLOOR2_Y, seatFloorY } from './layout';
+import { TREE, UpperFloorClickPlane, Floor3ClickPlane, StairClickZones } from './TreeDecor';
+import { FLOOR_YS, seatFloorY } from './layout';
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const HOME = { cam: [3, 8.5, 12.5], target: [0, 0.9, 1.2] };
@@ -16,7 +16,7 @@ const HOME = { cam: [3, 8.5, 12.5], target: [0, 0.9, 1.2] };
 const BOUNDS = {
   room: { free: { x0: -6, x1: 6, z0: -2, z1: 6.5 }, follow: { x0: -8, x1: 8, z0: -4, z1: 8.5 } },
   // 樹屋：整個一樓（半徑 12 的圓）、二樓環形平台，以及懸在樹幹外面的樹枝咖啡廳都能看到
-  tree: { free: { x0: -41, x1: 41, z0: -41, z1: 43 }, follow: { x0: -41, x1: 41, z0: -41, z1: 43 } },
+  tree: { free: { x0: -48, x1: 48, z0: -48, z1: 50 }, follow: { x0: -48, x1: 48, z0: -48, z1: 50 } },
 };
 
 /**
@@ -52,8 +52,8 @@ function CameraRig({ mode, tree, resetKey, selfRef, showMe, seats, currentUserId
         t.x += dx; t.z += dz; camera.position.x += dx; camera.position.z += dz;
         if (tree) goalY = HOME.target[1] + sy; // 在二樓時，視角中心跟著升高
       }
-    } else if (tree && viewLevel === 2) {
-      goalY = HOME.target[1] + FLOOR2_Y;       // 自由移動：手動看二樓
+    } else if (tree) {
+      goalY = HOME.target[1] + (FLOOR_YS[viewLevel - 1] ?? 0);   // 自由移動：手動看一 / 二 / 三樓
     }
     if (tree && goalY !== null) {
       const dy = (goalY - t.y) * 0.1;
@@ -151,6 +151,7 @@ export default function CafeScene({
         )}
         {/* 樹屋二樓（樹枝咖啡廳）的地板：點下去會自動走上樓梯 */}
         {onFloorClick && tree && <UpperFloorClickPlane onFloorClick={onFloorClick} />}
+        {onFloorClick && tree && <Floor3ClickPlane onFloorClick={onFloorClick} />}
         {onFloorClick && tree && <StairClickZones onFloorClick={onFloorClick} meRef={players?.meRef} />}
         {players && (
           <WalkersLayer players={players} seats={seats} currentUserId={currentUserId} selfName={selfName} selfAvatarUrl={selfAvatarUrl} />
@@ -176,7 +177,7 @@ export default function CafeScene({
       </Canvas>
       <div className="absolute right-2 top-2 z-20 flex max-w-[calc(100vw-1rem)] flex-col items-end gap-1">
         <div className="flex items-center gap-0.5 rounded-full bg-stone-900/85 p-1 ring-1 ring-stone-700" role="group" aria-label="視角">
-          <button type="button" onClick={() => { setCamMode('free'); if (tree) setViewLevel((players?.meRef?.current?.y ?? 0) > FLOOR2_Y / 2 ? 2 : 1); }} className={pill(camMode === 'free')} aria-pressed={camMode === 'free'}>自由移動</button>
+          <button type="button" onClick={() => { setCamMode('free'); if (tree) setViewLevel(1 + FLOOR_YS.reduce((n, fy, i) => ((players?.meRef?.current?.y ?? 0) > fy - 1 ? i : n), 0)); }} className={pill(camMode === 'free')} aria-pressed={camMode === 'free'}>自由移動</button>
           <button type="button" onClick={() => setCamMode('follow')} className={pill(camMode === 'follow')} aria-pressed={camMode === 'follow'}>跟隨我</button>
           <button type="button" onClick={() => setResetKey((k) => k + 1)} className={pill(false)}>重設視角</button>
         </div>
@@ -184,6 +185,7 @@ export default function CafeScene({
           <div className="flex items-center gap-0.5 rounded-full bg-stone-900/85 p-1 ring-1 ring-stone-700" role="group" aria-label="樓層">
             <button type="button" onClick={() => { setCamMode('free'); setViewLevel(1); }} className={pill(camMode === 'free' && viewLevel === 1)}>看一樓</button>
             <button type="button" onClick={() => { setCamMode('free'); setViewLevel(2); }} className={pill(camMode === 'free' && viewLevel === 2)}>看二樓</button>
+            <button type="button" onClick={() => { setCamMode('free'); setViewLevel(3); }} className={pill(camMode === 'free' && viewLevel === 3)}>看三樓</button>
           </div>
         )}
         <p className="rounded-lg bg-stone-900/70 px-2 py-1 text-[10px] text-stone-400">{camMode === 'follow' ? '視角中心會跟著你的角色・拖曳旋轉・滾輪縮放' : '拖曳旋轉・滾輪縮放・右鍵 / 雙指拖曳平移'}</p>
