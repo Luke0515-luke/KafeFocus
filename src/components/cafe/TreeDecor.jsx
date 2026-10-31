@@ -2,8 +2,8 @@ import { useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
-  TREE, FLOOR2_Y, FLOOR3_Y, GROUND_R, UPPER, UPPER3, STAIR, STAIR2, STAIR_STEPS, STAIR2_STEPS, STAIR_MOUTH, STAIR_TOP,
-  STAIR2_MOUTH, STAIR2_TOP, UPPER_TABLES, FLOOR3_TABLES, BRANCH, BRANCH_ROOMS, BARK_PHIS, BOOK_HALL,
+  TREE, FLOOR2_Y, FLOOR3_Y, GROUND_R, UPPER, PLAT3, STAIR, STAIR2, STAIR_STEPS, STAIR2_STEPS, STAIR_MOUTH, STAIR_TOP,
+  STAIR2_MOUTH, STAIR2_TOP, UPPER_TABLES, FLOOR3_TABLES, BRANCH, BRANCH_ROOMS, BARK_PHIS, treeView,
   polar, rngFactory, mushroomSpots,
 } from './treeLayout';
 
@@ -111,7 +111,7 @@ function Trunk() {
     g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
     g.fillStyle = '#000';
     const rx = (1.6 / (2 * Math.PI * TREE.R)) * W; const ry = (1.6 / TREE.H) * H;
-    [...BRANCH_ROOMS.map((b) => ({ phi: b.phi, y: FLOOR2_Y + 1.2 })), { phi: BOOK_HALL.phi, y: FLOOR3_Y + 1.2 }].forEach((b) => {
+    BRANCH_ROOMS.map((b) => ({ phi: b.phi, y: FLOOR2_Y + 1.2 })).forEach((b) => {
       const u = ((((90 - b.phi) % 360) + 360) % 360) / 360;
       const v = (b.y + 2) / TREE.H;
       [-W, 0, W].forEach((dx) => { g.beginPath(); g.ellipse(u * W + dx, (1 - v) * H, rx, ry, 0, 0, Math.PI * 2); g.fill(); });
@@ -244,7 +244,7 @@ function Roots() {
 
 /* ---------------- 發光的巨大蘑菇 ---------------- */
 const MUSH = [['#4de3ff', '#9ff3ff'], ['#ff7ad0', '#ffb8e6'], ['#ffb347', '#ffd9a0'], ['#8dff8a', '#c8ffc6']];
-function Mushroom({ position, s = 1, c = MUSH[0] }) {   // c 沒給（或索引算錯）時用預設顏色，避免整個場景崩潰變黑屏
+function Mushroom({ position, s = 1, c }) {
   return (
     <group position={position} scale={s}>
       <mesh position={[0, 0.55, 0]} castShadow><cylinderGeometry args={[0.18, 0.28, 1.1, 12]} /><meshStandardMaterial color="#efe3c8" roughness={0.8} /></mesh>
@@ -271,7 +271,7 @@ function Lanterns() {
     <group>
       {LANTERNS.map(([x, y, z], i) => (
         <group key={i} position={[x, y, z]}>
-          <mesh position={[0, 14, 0]}><cylinderGeometry args={[0.02, 0.02, 28, 5]} /><meshStandardMaterial color="#2a4a2a" roughness={1} /></mesh>
+          <mesh position={[0, (FLOOR3_Y - 0.3 - y) / 2, 0]}><cylinderGeometry args={[0.02, 0.02, FLOOR3_Y - 0.3 - y, 5]} /><meshStandardMaterial color="#2a4a2a" roughness={1} /></mesh>
           <mesh scale={[1, 1.25, 1]}><sphereGeometry args={[0.36, 18, 14]} /><meshBasicMaterial color={i % 2 ? '#ffe6a0' : '#ffd27a'} toneMapped={false} /></mesh>
           <mesh position={[0, 0.5, 0]}><coneGeometry args={[0.28, 0.3, 8]} /><meshStandardMaterial color="#3d6a3a" roughness={0.8} /></mesh>
           {i < 4 && <pointLight color="#ffd68a" intensity={16} distance={10} decay={2} />}
@@ -282,15 +282,15 @@ function Lanterns() {
 }
 
 /* ---------------- 螢火蟲 ---------------- */
-function Fireflies({ count = 90 }) {
+function Fireflies({ count = 90, y0 = 0.8, yr = 8.6 }) {
   const ref = useRef();
   const dot = useCanvasTexture(drawDot, 64, 64);
   const seeds = useMemo(() => {
     const rnd = rngFactory(99);
     return Array.from({ length: count }, () => ({
-      x: -13 + rnd() * 26, y: 0.8 + rnd() * 12, z: -10 + rnd() * 24, ph: rnd() * 6.28, sp: 0.2 + rnd() * 0.5, am: 0.4 + rnd() * 0.9,
+      x: -13 + rnd() * 26, y: y0 + rnd() * yr, z: -10 + rnd() * 24, ph: rnd() * 6.28, sp: 0.2 + rnd() * 0.5, am: 0.4 + rnd() * 0.9,
     }));
-  }, [count]);
+  }, [count, y0, yr]);
   const positions = useMemo(() => new Float32Array(count * 3), [count]);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
@@ -408,7 +408,7 @@ function RingDeck({ ring, floorY, beamPhis, shadow = false }) {
   );
 }
 
-// 二樓各條通道（樹枝咖啡廳）的幾何，與三樓的分享書籍大廳（BOOK_HALL）
+// 二樓各條通道（樹枝咖啡廳）的幾何
 const HALLS2 = BRANCH_ROOMS.map((b) => ({ ...BRANCH, ...b }));
 
 /** 某一層地板的點擊區（透明）：環形平台 + 通道 + 大樹枝。點到就走過去，不在那一層會先走樓梯。由 CafeScene 放進場景。 */
@@ -444,7 +444,15 @@ export function UpperFloorClickPlane({ onFloorClick }) {
   return <LevelClickPlanes ring={UPPER} halls={HALLS2} floorY={FLOOR2_Y} onFloorClick={onFloorClick} />;
 }
 export function Floor3ClickPlane({ onFloorClick }) {
-  return <LevelClickPlanes ring={UPPER3} halls={[BOOK_HALL]} floorY={FLOOR3_Y} onFloorClick={onFloorClick} />;
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]} position={[TREE.cx, FLOOR3_Y + 0.02, TREE.cz]}
+      onClick={(e) => { if (e.delta > 6) return; e.stopPropagation(); onFloorClick(e.point.x, e.point.z, FLOOR3_Y); }}
+    >
+      <circleGeometry args={[PLAT3.ro, 64]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+    </mesh>
+  );
 }
 
 /**
@@ -561,8 +569,8 @@ function UpperTable({ t, floorY }) {
               <mesh key={sd} position={[sd * (t.w / 2 - 0.45), (h - 0.08) / 2, 0]} castShadow><boxGeometry args={[0.14, h - 0.08, t.dd * 0.8]} /><meshStandardMaterial color="#4a3320" roughness={0.95} /></mesh>
             ))}
             <mesh position={[0, 0.25, 0]}><boxGeometry args={[t.w - 0.9, 0.06, 0.1]} /><meshStandardMaterial color="#4a3320" roughness={0.95} /></mesh>
-            {[-2.4, 0, 2.4].map((dx, k) => (
-              <Mushroom key={dx} position={[dx, h, 0.1]} s={0.11} c={MUSH[(k + 1) % 4]} />
+            {[-2.4, 0, 2.4].map((dx) => (
+              <Mushroom key={dx} position={[dx, h, 0.1]} s={0.11} c={MUSH[(Math.round(dx * 3) + 4) % 4]} />
             ))}
           </>
         )}
@@ -596,7 +604,6 @@ function UpperTables() {
   return (
     <group>
       {UPPER_TABLES.map((t) => <UpperTable key={t.id} t={t} floorY={FLOOR2_Y} />)}
-      {FLOOR3_TABLES.map((t) => <UpperTable key={t.id} t={t} floorY={FLOOR3_Y} />)}
     </group>
   );
 }
@@ -661,100 +668,206 @@ function fillBooks(rnd, len, at) {
   return out;
 }
 
-/** 三樓環形平台外圈的書牆：樹壁上一整圈的書架（避開通往大廳的圓拱），3 層木板擺滿書 */
-const RING_SHELF_YS = [0.15, 0.85, 1.55];
+/** 三樓平台的整組內容放進這個元件：鏡頭在三樓上方、人卻在樓下時（CameraRig 會設定 treeView.floor3Hidden），整塊平台暫時隱藏，不然會擋住樓下的視野 */
+function Gate3({ children }) {
+  const ref = useRef();
+  useFrame(() => { if (ref.current) ref.current.visible = !treeView.floor3Hidden; });
+  return <group ref={ref}>{children}</group>;
+}
+
+/** 三樓：整個樹幹中間的一大塊圓平台（只留樓梯井）+ 底下撐住平台的粗樹枝 */
+function PlatformDeck() {
+  const planks = useCanvasTexture(drawPlanks, 256, 256, [0.5, 0.5]);
+  const w = PLAT3.well;
+  const deckGeo = useMemo(() => {
+    const sh = new THREE.Shape();
+    sh.absarc(0, 0, PLAT3.ro + 0.15, 0, Math.PI * 2, false);
+    // 樓梯井：同一套座標（x = r·cosφ、y = -r·sinφ，躺平後對到世界座標）
+    const pt = (phi, r) => new THREE.Vector2(Math.cos(rad(phi)) * r, -Math.sin(rad(phi)) * r);
+    const pts = [];
+    for (let k = 0; k <= 24; k += 1) pts.push(pt(w.phi0 + ((w.phi1 - w.phi0) * k) / 24, w.ro));
+    for (let k = 24; k >= 0; k -= 1) pts.push(pt(w.phi0 + ((w.phi1 - w.phi0) * k) / 24, w.ri));
+    sh.holes.push(new THREE.Path(pts));
+    return new THREE.ExtrudeGeometry(sh, { depth: PLAT3.thick, bevelEnabled: false, curveSegments: 96 });
+  }, [w]);
+  const beams = useMemo(() => BEAMS3.map((phi, i) => {
+    const wob = i % 2 ? 1.5 : -1.5;
+    const v = (r, y, off = 0) => new THREE.Vector3(...polar(phi + off, r, y));
+    return new THREE.CatmullRomCurve3([
+      v(PLAT3.ro + 0.3, FLOOR3_Y - 3.0), v(PLAT3.ro - 1.5, FLOOR3_Y - 1.8, wob * 0.4),
+      v(PLAT3.ro - 4.0, FLOOR3_Y - 0.9, wob * 0.7), v(PLAT3.ro - 7.5, FLOOR3_Y - PLAT3.thick - 0.02, wob),
+    ]);
+  }), []);
+  return (
+    <group>
+      <mesh geometry={deckGeo} position={[TREE.cx, FLOOR3_Y - PLAT3.thick, TREE.cz]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <meshStandardMaterial attach="material-0" map={planks} roughness={0.85} />
+        <meshStandardMaterial attach="material-1" color="#4a3320" roughness={0.95} />
+      </mesh>
+      {beams.map((c, i) => (
+        <mesh key={i}>
+          <tubeGeometry args={[c, 24, 0.3, 8, false]} />
+          <meshStandardMaterial color="#4a3120" roughness={1} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** 樓梯井四周的欄杆（靠近 phi1 那一側是樓梯走上來的入口，留空） */
+function WellRailings() {
+  const { posts, rails } = useMemo(() => {
+    const w = PLAT3.well; const y0 = FLOOR3_Y; const pad = 0.14;
+    const posts = []; const rails = [];
+    const V = (p) => new THREE.Vector3(...p);
+    const arcPts = (r, y) => Array.from({ length: 25 }, (_, k) => V(polar(w.phi0 + ((w.phi1 - w.phi0) * k) / 24, r, y)));
+    [w.ri - pad, w.ro + pad].forEach((r) => {
+      [1.0, 0.55].forEach((h) => rails.push(new THREE.CatmullRomCurve3(arcPts(r, y0 + h))));
+      const n = Math.round((rad(w.phi1 - w.phi0) * r) / 1.2);
+      for (let k = 0; k <= n; k += 1) posts.push(polar(w.phi0 + ((w.phi1 - w.phi0) * k) / n, r, y0));
+    });
+    const phiE = w.phi0 - ((pad / 13.4) * 180) / Math.PI;
+    [1.0, 0.55].forEach((h) => rails.push(new THREE.CatmullRomCurve3([V(polar(phiE, w.ri - pad, y0 + h)), V(polar(phiE, w.ro + pad, y0 + h))])));
+    for (let k = 0; k <= 2; k += 1) posts.push(polar(phiE, w.ri - pad + ((w.ro - w.ri + 2 * pad) * k) / 2, y0));
+    return { posts, rails };
+  }, []);
+  return (
+    <group>
+      {posts.map(([x, y, z], i) => (
+        <mesh key={i} position={[x, y + 0.52, z]}>
+          <cylinderGeometry args={[0.045, 0.06, 1.04, 6]} />
+          <meshStandardMaterial color="#4a3320" roughness={0.95} />
+        </mesh>
+      ))}
+      {rails.map((c, i) => (
+        <mesh key={i}>
+          <tubeGeometry args={[c, 30, 0.04, 6, false]} />
+          <meshStandardMaterial color="#5a3d22" roughness={0.9} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** 樹壁一整圈的書牆：4 層木板擺滿書（三樓的牆上沒有圓拱，所以整圈都是書架） */
+const RING_SHELF_YS = [0.15, 0.85, 1.55, 2.25];
 function RingShelves() {
   const { boards, books, posts } = useMemo(() => {
     const rnd = rngFactory(2026);
     const rShelf = 15.5;
-    const gap = (1.6 + 0.6) / rShelf * (180 / Math.PI);                     // 圓拱兩側要空出來的角度
-    const archPhi = BOOK_HALL.phi + 360;
-    const segs = [[UPPER3.phi0 + 2.5, archPhi - gap], [archPhi + gap, UPPER3.phi1 - 2.5]];
     const boards = []; const books = []; const posts = [];
-    segs.forEach(([p0, p1]) => {
-      RING_SHELF_YS.forEach((by) => {
-        boards.push(new THREE.ExtrudeGeometry(sectorShape(rShelf - 0.38, rShelf + 0.38, p0, p1, 90), { depth: 0.04, bevelEnabled: false }));
-        const lenArc = rad(p1 - p0) * rShelf;
-        books.push(...fillBooks(rnd, lenArc, (a, h) => {
-          const phi = p0 + (a / rShelf) * (180 / Math.PI);
-          return { p: polar(phi, rShelf, FLOOR3_Y + by + 0.02 + h / 2), ry: -rad(phi), depth: 0.26 };
-        }));
-      });
-      const n = Math.max(1, Math.round((rad(p1 - p0) * rShelf) / 2.4));
-      for (let k = 0; k <= n; k += 1) {
-        const phi = p0 + ((p1 - p0) * k) / n;
-        posts.push({ p: polar(phi, rShelf, FLOOR3_Y + 1.05), ry: -rad(phi), s: [0.7, 2.1, 0.06], c: WOOD });
-      }
+    RING_SHELF_YS.forEach((by) => {
+      boards.push(new THREE.ExtrudeGeometry(sectorShape(rShelf - 0.38, rShelf + 0.38, 0, 359.8, 140), { depth: 0.04, bevelEnabled: false }));
+      const lenArc = rad(359.8) * rShelf;
+      books.push(...fillBooks(rnd, lenArc, (a, h) => {
+        const phi = (a / rShelf) * (180 / Math.PI);
+        return { p: polar(phi, rShelf, FLOOR3_Y + by + 0.02 + h / 2), ry: -rad(phi), depth: 0.26 };
+      }));
     });
+    const n = Math.round((2 * Math.PI * rShelf) / 2.4);
+    for (let k = 0; k < n; k += 1) {
+      const phi = (k * 360) / n;
+      posts.push({ p: polar(phi, rShelf, FLOOR3_Y + 1.45), ry: -rad(phi), s: [0.7, 2.9, 0.06], c: WOOD });
+    }
     return { boards, books, posts };
   }, []);
   return (
     <group>
-      {RING_SHELF_YS.flatMap((by, k) => boards.filter((_, i) => i % 3 === k).map((geo, i) => (
-        <mesh key={`${k}-${i}`} geometry={geo} position={[TREE.cx, FLOOR3_Y + by - 0.04, TREE.cz]} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
+      {boards.map((geo, k) => (
+        <mesh key={k} geometry={geo} position={[TREE.cx, FLOOR3_Y + RING_SHELF_YS[k] - 0.04, TREE.cz]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <meshStandardMaterial color={WOOD} roughness={0.85} />
         </mesh>
-      )))}
+      ))}
       <BoxInstances items={posts} roughness={0.9} />
       <BoxInstances items={books} />
     </group>
   );
 }
 
-/** 分享書籍大廳（大樹枝裡面）的內容：兩側的書架、書、盡頭的漂流書交換台與告示牌。座標以樹枝為準：x = 側向、y = 離地板高度、z = 沿樹枝（離樹心的距離） */
-const HALL_SHELF_YS = [0.15, 0.7, 1.25, 1.8];
-function BookHallInterior() {
-  const H = BOOK_HALL;
-  const sign = useCanvasTexture((g, W, Ht) => {
-    g.fillStyle = '#4a3320'; g.fillRect(0, 0, W, Ht);
-    g.strokeStyle = '#2f1d0e'; g.lineWidth = 8; g.strokeRect(6, 6, W - 12, Ht - 12);
+/** 平台正中央：漂流書交換台（圓形櫃台，四面各一塊牌子）與一棵掛滿燈籠的書樹 */
+function BookCenter() {
+  const sign = useCanvasTexture((g, W, H) => {
+    g.fillStyle = '#4a3320'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#2f1d0e'; g.lineWidth = 8; g.strokeRect(6, 6, W - 12, H - 12);
     g.textAlign = 'center'; g.fillStyle = '#ffe9b0';
-    g.font = 'bold 66px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif';
-    g.fillText('漂流書交換台', W / 2, 92);
-    g.fillStyle = '#c9f0b8'; g.font = '36px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif';
-    g.fillText('帶一本書來，換一本書走', W / 2, 150);
-  }, 512, 180);
-  const { books, posts } = useMemo(() => {
-    const rnd = rngFactory(777);
-    const books = []; const posts = [];
-    const a0 = H.hallStart + 1.2; const a1 = H.hallEnd - 0.6;
-    [-1, 1].forEach((side) => {
-      HALL_SHELF_YS.forEach((by) => {
-        books.push(...fillBooks(rnd, a1 - a0, (a, h) => ({ p: [side * 5.15, by + 0.02 + h / 2, a0 + a], ry: 0, depth: 0.28 })));
-      });
-      for (let a = a0; a <= a1 + 0.01; a += 2.0) posts.push({ p: [side * 5.15, 1.0, a], ry: 0, s: [0.5, 2.05, 0.06], c: WOOD });
-    });
-    // 交換台上的幾疊書
-    for (let k = 0; k < 9; k += 1) {
-      const lat = -1.8 + (k % 5) * 0.9; const base = H.hallEnd + 1.6 + (k < 5 ? -0.15 : 0.2);
+    g.font = 'bold 64px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif';
+    g.fillText('漂流書交換台', W / 2, 88);
+    g.fillStyle = '#c9f0b8'; g.font = '34px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif';
+    g.fillText('帶一本書來，換一本書走', W / 2, 142);
+  }, 512, 170);
+  const R = PLAT3.counterR; const y0 = FLOOR3_Y;
+  const { books, lanterns, leaves } = useMemo(() => {
+    const rnd = rngFactory(31337);
+    const books = [];
+    for (let k = 0; k < 24; k += 1) {                         // 櫃台上的幾疊書
+      const a = (k / 24) * Math.PI * 2 + rnd() * 0.1; const rr = R + (rnd() - 0.5) * 0.5;
       const n = 2 + Math.floor(rnd() * 3);
       for (let j = 0; j < n; j += 1) {
-        books.push({ p: [lat + (rnd() - 0.5) * 0.04, 1.05 + 0.025 + j * 0.05, base], ry: (rnd() - 0.5) * 0.5, s: [0.3, 0.05, 0.22], c: BOOK_COLORS[Math.floor(rnd() * BOOK_COLORS.length)] });
+        books.push({ p: [TREE.cx + Math.cos(a) * rr, y0 + 1.1 + 0.025 + j * 0.05, TREE.cz + Math.sin(a) * rr], ry: rnd() * 3, s: [0.3, 0.05, 0.22], c: BOOK_COLORS[Math.floor(rnd() * BOOK_COLORS.length)] });
       }
     }
-    return { books, posts };
-  }, [H.hallStart, H.hallEnd]);
-  const a0 = H.hallStart + 1.2; const a1 = H.hallEnd - 0.6;
+    const lanterns = Array.from({ length: 8 }, (_, k) => ({ a: (k / 8) * Math.PI * 2, r: 1.9 + (k % 2) * 0.5, y: 3.0 + (k % 3) * 0.35 }));
+    const leaves = Array.from({ length: 9 }, () => ({
+      p: [(rnd() - 0.5) * 2.6, 4.1 + rnd() * 1.1, (rnd() - 0.5) * 2.6], s: 0.9 + rnd() * 0.7, c: LEAF_GREENS[Math.floor(rnd() * LEAF_GREENS.length)],
+    }));
+    return { books, lanterns, leaves };
+  }, [R, y0]);
   return (
     <group>
-      {[-1, 1].map((side) => HALL_SHELF_YS.map((by) => (
-        <mesh key={`${side}${by}`} position={[side * 5.15, by - 0.02, (a0 + a1) / 2]} castShadow receiveShadow>
-          <boxGeometry args={[0.56, 0.04, a1 - a0]} />
-          <meshStandardMaterial color={WOOD} roughness={0.85} />
-        </mesh>
-      )))}
-      <BoxInstances items={posts} roughness={0.9} />
-      <BoxInstances items={books} />
-      <mesh position={[0, 3.3, H.hallEnd + 4.4]} rotation={[0, Math.PI, 0]}>
-        <planeGeometry args={[4.2, 1.5]} />
-        <meshStandardMaterial map={sign} roughness={0.85} emissive="#ffd9a0" emissiveMap={sign} emissiveIntensity={0.3} />
+      {Array.from({ length: 16 }, (_, k) => {
+        const a = (k / 16) * Math.PI * 2;
+        return (
+          <mesh key={k} position={[TREE.cx + Math.cos(a) * R, y0 + 0.52, TREE.cz + Math.sin(a) * R]} rotation={[0, -a, 0]}>
+            <boxGeometry args={[0.7, 1.04, 1.1]} />
+            <meshStandardMaterial color="#4a3320" roughness={0.9} />
+          </mesh>
+        );
+      })}
+      <mesh position={[TREE.cx, y0 + 1.07, TREE.cz]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[R - 0.5, R + 0.5, 48]} />
+        <meshStandardMaterial color="#8a6238" roughness={0.7} side={THREE.DoubleSide} />
       </mesh>
+      {[0, 1, 2, 3].map((k) => {
+        const a = (k * Math.PI) / 2;
+        return (
+          <mesh key={k} position={[TREE.cx + Math.cos(a) * (R + 0.62), y0 + 1.6, TREE.cz + Math.sin(a) * (R + 0.62)]} rotation={[0, Math.PI / 2 - a, 0]}>
+            <planeGeometry args={[2.3, 0.78]} />
+            <meshStandardMaterial map={sign} roughness={0.85} emissive="#ffd9a0" emissiveMap={sign} emissiveIntensity={0.3} />
+          </mesh>
+        );
+      })}
+      <BoxInstances items={books} />
+      {/* 書樹：樹幹 + 葉叢 + 吊燈籠 */}
+      <mesh position={[TREE.cx, y0 + 1.9, TREE.cz]}>
+        <cylinderGeometry args={[0.26, 0.42, 3.8, 10]} />
+        <meshStandardMaterial color="#4a3120" roughness={1} />
+      </mesh>
+      <group position={[TREE.cx, y0, TREE.cz]}>
+        {leaves.map((l, i) => (
+          <mesh key={i} position={l.p} scale={[l.s * 1.3, l.s * 0.8, l.s * 1.3]}>
+            <icosahedronGeometry args={[0.7, 0]} />
+            <meshStandardMaterial color={l.c} roughness={0.9} flatShading emissive={l.c} emissiveIntensity={0.12} />
+          </mesh>
+        ))}
+        {lanterns.map((l, i) => (
+          <group key={i} position={[Math.cos(l.a) * l.r, l.y, Math.sin(l.a) * l.r]}>
+            <mesh position={[0, 0.7, 0]}><cylinderGeometry args={[0.012, 0.012, 1.4, 5]} /><meshStandardMaterial color="#2a4a2a" roughness={1} /></mesh>
+            <mesh scale={[1, 1.25, 1]}><sphereGeometry args={[0.24, 14, 10]} /><meshBasicMaterial color={i % 2 ? '#ffe6a0' : '#ffd27a'} toneMapped={false} /></mesh>
+            <mesh><sphereGeometry args={[0.7, 12, 8]} /><meshBasicMaterial color="#ffb85a" transparent opacity={0.1} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} /></mesh>
+          </group>
+        ))}
+      </group>
     </group>
   );
+}
+
+/** 三樓的桌子（圓桌；中間的櫃台在 BookCenter） */
+function Floor3Tables() {
+  return <group>{FLOOR3_TABLES.filter((t) => t.type === 'cafe').map((t) => <UpperTable key={t.id} t={t} floorY={FLOOR3_Y} />)}</group>;
 }
 
 /**
- * 樹壁上的圓拱通道 + 一整條長在樹幹外面的空心大樹枝。二樓是 4 間樹枝咖啡廳，三樓是分享書籍大廳（同一套程式，尺寸不同）。
+ * 樹壁上的圓拱通道 + 一整條長在樹幹外面的空心大樹枝（二樓的 4 間樹枝咖啡廳）。
  *   - 樹壁上的洞由 Trunk 的 alphaMap 挖出來；通道是圓柱管，後面接一條半徑 R 的空心樹枝（圓柱 + 尾端半球）。
  *   - 樹枝的樹皮牆面也用 alphaMap 挖出圓形窗戶，窗外是 ForestOutside 的森林。
  *   - 只畫樹皮的內側，所以從外面看像是被剖開的（看得到裡面）。
@@ -905,18 +1018,6 @@ function BranchCafes() {
         </HallShell>
       ))}
     </group>
-  );
-}
-
-/** 三樓：分享書籍大廳（更大的一條大樹枝，兩側都是書架） */
-function BookHall() {
-  return (
-    <HallShell
-      hall={BOOK_HALL} floorY={FLOOR3_Y} R={6.0} cy={2.6}
-      winAlong={[0.1, 0.3, 0.5, 0.7, 0.9]} skyAlong={[0.2, 0.5, 0.8]} winYrel={1.2} lampCount={5} label="三樓・分享書籍大廳"
-    >
-      <BookHallInterior />
-    </HallShell>
   );
 }
 
@@ -1081,11 +1182,11 @@ function MossBits() {
   );
 }
 
-// 平台底下的大梁：避開通往樹枝咖啡廳 / 大廳的圓拱（梁的末端會停在樹壁上，不要擋在洞口）
-const ARCHES = [...BRANCH_ROOMS.map((b) => b.phi), BOOK_HALL.phi, ...BARK_PHIS];
+// 平台底下的大梁：避開通往樹枝咖啡廳的圓拱（梁的末端會停在樹壁上，不要擋在洞口）、也避開第二段樓梯
+const ARCHES = [...BRANCH_ROOMS.map((b) => b.phi), ...BARK_PHIS];
 const nearArch = (phi) => ARCHES.some((a) => { const d = (((phi - a) % 360) + 360) % 360; return Math.min(d, 360 - d) < 9; });
 const BEAMS2 = Array.from({ length: 10 }, (_, i) => UPPER.phi0 + 12 + i * 33);
-const BEAMS3 = Array.from({ length: 11 }, (_, i) => UPPER3.phi0 + 12 + i * 29).filter((p) => !nearArch(p));
+const BEAMS3 = Array.from({ length: 12 }, (_, i) => 10 + i * 30).filter((p) => !nearArch(p) && !(p > 300 && p < 356));
 
 export function TreeDecor() {
   return (
@@ -1115,12 +1216,16 @@ export function TreeDecor() {
       <RingRailings ring={UPPER} floorY={FLOOR2_Y} edgeStopR={STAIR.r - STAIR.w / 2 - 0.3} />
       <BranchCafes />
       <BarkPlugs />
-      {/* 三樓：環形平台（樹壁一整圈都是書架）+ 通往分享書籍大廳的大樹枝；桌子（二、三樓）統一在這裡畫 */}
-      <RingDeck ring={UPPER3} floorY={FLOOR3_Y} beamPhis={BEAMS3} />
-      <RingRailings ring={UPPER3} floorY={FLOOR3_Y} edgeStopR={STAIR2.r - STAIR2.w / 2 - 0.3} />
-      <RingShelves />
-      <BookHall />
       <UpperTables />
+      {/* 三樓：分享書籍大廳（整個樹幹中間的一大塊平台）。Gate3：鏡頭在三樓上方、人在樓下時整組暫時隱藏 */}
+      <Gate3>
+        <PlatformDeck />
+        <WellRailings />
+        <RingShelves />
+        <BookCenter />
+        <Floor3Tables />
+        <Fireflies count={40} y0={11.2} yr={7} />
+      </Gate3>
       <ForestOutside />
     </group>
   );
