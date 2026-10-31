@@ -15,7 +15,7 @@ import {
  */
 const CELL = 0.2;
 const ROOM_BOUNDS = { X0: -9, X1: 9, Z0: -5, Z1: 9 };
-const TREE_BOUNDS = { X0: TREE.cx - 48, X1: TREE.cx + 48, Z0: TREE.cz - 48, Z1: TREE.cz + 48 }; // 要包含長在樹幹外面的樹枝咖啡廳與分享書籍大廳
+const TREE_BOUNDS = { X0: TREE.cx - 41, X1: TREE.cx + 41, Z0: TREE.cz - 41, Z1: TREE.cz + 41 }; // 要包含長在樹幹外面的樹枝咖啡廳
 const AGENT = 0.24;     // 角色半徑
 const WALL = 0.45;      // 離牆至少這麼遠
 
@@ -70,14 +70,15 @@ export function upperObstacles() {
   return o;
 }
 
-/** 三樓的障礙物：長桌 / 櫃台用一串圓來擋（它們沿著斜的樹枝方向），加上桌子與椅子 */
+/** 三樓的障礙物：圓桌、圓形櫃台（用一圈圓來擋）與椅子 */
 export function floor3Obstacles() {
   const o = [];
   FLOOR3_TABLES.forEach((t) => {
-    if (t.type === 'long' || t.type === 'counter') {
-      const [x, , z] = t.position;
-      const r = t.dd / 2 + 0.1;
-      for (let k = -t.w / 2 + r; k <= t.w / 2 - r + 1e-6; k += 0.5) o.push(circ(x + t.dir[0] * k, z + t.dir[1] * k, r));
+    if (t.type === 'ringcounter') {
+      for (let k = 0; k < 16; k += 1) {
+        const a = (k / 16) * Math.PI * 2;
+        o.push(circ(t.position[0] + Math.cos(a) * t.radius, t.position[2] + Math.sin(a) * t.radius, 0.8));
+      }
     } else o.push(tableShape(t));
   });
   FLOOR3_SEAT_LAYOUT.forEach((s) => o.push(circ(s.x, s.z, SEAT_R[s.style] ?? 0.3)));

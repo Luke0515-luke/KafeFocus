@@ -1,6 +1,6 @@
 import {
   TREE, FLOOR2_Y, FLOOR3_Y, UPPER_SEAT_LAYOUT, UPPER_TABLES, BRANCH, BRANCH_ROOMS, BARK_PHIS,
-  RING3, BOOK_HALL, FLOOR3_SEAT_LAYOUT, FLOOR3_TABLES,
+  PLAT3, FLOOR3_SEAT_LAYOUT, FLOOR3_TABLES,
 } from './layout';
 
 /**
@@ -13,14 +13,12 @@ import {
  */
 export {
   TREE, FLOOR2_Y, FLOOR3_Y, UPPER_SEAT_LAYOUT, UPPER_TABLES, BRANCH, BRANCH_ROOMS, BARK_PHIS,
-  BOOK_HALL, FLOOR3_SEAT_LAYOUT, FLOOR3_TABLES,
+  PLAT3, FLOOR3_SEAT_LAYOUT, FLOOR3_TABLES,
 };
 
 export const GROUND_R = 12.0;                                   // 一樓可走範圍的半徑（以樹心為圓心）
 // 圓弧平台從 188° 繞一圈到 158°（=518°），158°–188° 是缺口，樓梯從那裡爬上來
 export const UPPER = { phi0: 188, phi1: 518, ri: 10.4, ro: 15.9, thick: 0.3 };
-// 三樓環形平台（在二樓平台正上方；缺口是第二段樓梯）
-export const UPPER3 = { ...RING3, thick: 0.3 };
 export const STAIR = { r: 13.4, w: 2.2, phi0: 165, dphi: 2.9, count: 9, y0: 0.56, rise: 0.52 };
 // 第二段樓梯：從二樓平台往上盤旋到三樓（比較窄，二樓平台兩側還能走）
 export const STAIR2 = { r: 13.4, w: 1.6, phi0: 318, dphi: 2.9, count: 9, y0: FLOOR2_Y + 0.52, rise: 0.52 };
@@ -119,8 +117,19 @@ export function insideUpperRegion(x, z, wall = 0.45) {
   return BRANCH_ROOMS.some((b) => inHall({ ...BRANCH, d: b.d, l: b.l }, dx, dz, wall));
 }
 
-/** 三樓（第 2 層）可以站的地方：環形平台 ∪ 通往分享書籍大廳的通道與大樹枝 */
+/** 三樓（第 2 層）可以站的地方：整塊大圓平台（扣掉樓梯井；桌椅與櫃台由 nav.js 另外擋） */
 export function insideFloor3Region(x, z, wall = 0.45) {
   const dx = x - TREE.cx; const dz = z - TREE.cz;
-  return inRing(UPPER3, dx, dz, wall) || inHall(BOOK_HALL, dx, dz, wall);
+  const r = Math.hypot(dx, dz);
+  if (r > PLAT3.ro - 0.3) return false;
+  const w = PLAT3.well;
+  if (r > w.ri - wall && r < w.ro + wall) {
+    const phi = norm360((Math.atan2(dz, dx) * 180) / Math.PI, w.phi0 - 20);
+    const pad = ((wall / r) * 180) / Math.PI;
+    if (phi > w.phi0 - pad && phi < w.phi1 + pad) return false;
+  }
+  return true;
 }
+
+/** 目前鏡頭 / 視角的狀態（CameraRig 每一幀更新，其他元件讀）：floor3Hidden = 三樓平台要不要暫時隱藏（鏡頭在三樓上方、人卻在樓下時，大平台會擋住視野） */
+export const treeView = { floor3Hidden: false };

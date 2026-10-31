@@ -8,7 +8,8 @@ import WalkersLayer from './WalkersLayer';
 import { THEMES } from '../../config/themes';
 import { PaletteContext, makePalette } from './palette';
 import { TREE, UpperFloorClickPlane, Floor3ClickPlane, StairClickZones } from './TreeDecor';
-import { FLOOR_YS, seatFloorY } from './layout';
+import { treeView } from './treeLayout';
+import { FLOOR3_Y, FLOOR_YS, seatFloorY } from './layout';
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const HOME = { cam: [3, 8.5, 12.5], target: [0, 0.9, 1.2] };
@@ -23,7 +24,7 @@ const BOUNDS = {
  * 視角控制：自由平移（滑鼠右鍵 / 雙指拖曳）、跟隨我（鏡頭跟著自己的角色或座位）、回到中央。
  * 目標點被限制在店內，避免跑出場景。
  */
-function CameraRig({ mode, tree, resetKey, selfRef, showMe, seats, currentUserId, viewLevel }) {
+function CameraRig({ mode, tree, resetKey, selfRef, showMe, seats, currentUserId, viewLevel, onFloor3Hidden }) {
   const controls = useThree((s) => s.controls);
   const camera = useThree((s) => s.camera);
   const first = useRef(true);
@@ -56,6 +57,12 @@ function CameraRig({ mode, tree, resetKey, selfRef, showMe, seats, currentUserId
       goalY = HOME.target[1] + (FLOOR_YS[viewLevel - 1] ?? 0);   // 自由移動：手動看一 / 二 / 三樓
     }
     if (tree && goalY !== null) {
+      // 三樓是整個樹幹中間的一大塊平台：鏡頭在它上方、視角卻在樓下時，平台會擋住畫面 → 暫時隱藏三樓的所有東西
+      const focusY = goalY - HOME.target[1];
+      const above = camera.position.y > FLOOR3_Y + 0.3 && focusY < FLOOR3_Y - 1.5;
+      const back = focusY >= FLOOR3_Y - 1.5 || camera.position.y < FLOOR3_Y - 0.3;
+      const hidden = treeView.floor3Hidden ? !back : above;
+      if (hidden !== treeView.floor3Hidden) { treeView.floor3Hidden = hidden; onFloor3Hidden?.(hidden); }
       const dy = (goalY - t.y) * 0.1;
       if (Math.abs(goalY - t.y) < 0.002) { camera.position.y += goalY - t.y; t.y = goalY; } else { t.y += dy; camera.position.y += dy; }
     }
@@ -112,12 +119,14 @@ export default function CafeScene({
   useEffect(() => {
     seats.forEach((s) => preloadAvatar(s.occupant_avatar_url));
   }, [seats]);
+  useEffect(() => { treeView.floor3Hidden = false; return () => { treeView.floor3Hidden = false; }; }, []); // 模組層級的旗標：進出房間都要歸零
   const palette = useMemo(() => makePalette({ ...theme.palette, furniture: theme.furniture ?? null }), [theme]);
 
   const tree = theme.decor === 'tree';
   const [camMode, setCamMode] = useState('follow'); // follow（預設：視角中心跟著自己的角色）| free
   const [resetKey, setResetKey] = useState(0);
-  const [viewLevel, setViewLevel] = useState(1); // 樹屋「自由移動」時看一樓 / 二樓
+  const [viewLevel, setViewLevel] = useState(1); // 樹屋「自由移動」時看一 / 二 / 三樓
+  const [f3Hidden, setF3Hidden] = useState(false); // 三樓平台暫時隱藏（見 CameraRig）；隱藏時三樓的座位與點擊區也不能碰
   const pill = (on) => `rounded-full px-3 py-1.5 text-xs font-medium transition ${on ? 'bg-amber-500 text-stone-900' : 'text-stone-200 hover:bg-stone-700'}`;
 
   return (
@@ -129,14 +138,14 @@ export default function CafeScene({
         <Lights theme={theme} />
         <CafeDecor theme={theme} />
 
-        {seats.map((seat) => (
+        {seats.map((seat) => (tree && f3Hidden && seatFloorY(seat) >= FLOOR3_Y ? null : (
           <group key={seat.id}>
             <Seat3D seat={seat} occupied={!!seat.occupant_id} onSelect={onSeatSelect} />
             {seat.occupant_id && (
               <UserAvatar3D seat={seat} isSelf={seat.occupant_id === currentUserId} bubble={players?.bubbles?.[seat.occupant_id]} outfit={players?.outfits?.[seat.occupant_id]} />
             )}
           </group>
-        ))}
+        )))}
 
         {/* 看不見的地板：點一下就走過去（拖曳轉鏡頭時 delta 很大，不算點擊） */}
         {onFloorClick && (
@@ -151,7 +160,7 @@ export default function CafeScene({
         )}
         {/* 樹屋二樓（樹枝咖啡廳）的地板：點下去會自動走上樓梯 */}
         {onFloorClick && tree && <UpperFloorClickPlane onFloorClick={onFloorClick} />}
-        {onFloorClick && tree && <Floor3ClickPlane onFloorClick={onFloorClick} />}
+        {onFloorClick && tree && !f3Hidden && <Floor3ClickPlane onFloorClick={onFloorClick} />}
         {onFloorClick && tree && <StairClickZones onFloorClick={onFloorClick} meRef={players?.meRef} />}
         {players && (
           <WalkersLayer players={players} seats={seats} currentUserId={currentUserId} selfName={selfName} selfAvatarUrl={selfAvatarUrl} />
@@ -172,7 +181,7 @@ export default function CafeScene({
         />
         <CameraRig
           mode={camMode} tree={tree} resetKey={resetKey} selfRef={players?.meRef} showMe={!!players?.showMe}
-          seats={seats} currentUserId={currentUserId} viewLevel={viewLevel}
+          seats={seats} currentUserId={currentUserId} viewLevel={viewLevel} onFloor3Hidden={setF3Hidden}
         />
       </Canvas>
       <div className="absolute right-2 top-2 z-20 flex max-w-[calc(100vw-1rem)] flex-col items-end gap-1">
