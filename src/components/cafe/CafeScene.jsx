@@ -15,8 +15,8 @@ const HOME = { cam: [3, 8.5, 12.5], target: [0, 0.9, 1.2] };
 // 視角可以平移的範圍（目標點）；「跟隨我」時範圍放大到整個店內
 const BOUNDS = {
   room: { free: { x0: -6, x1: 6, z0: -2, z1: 6.5 }, follow: { x0: -8, x1: 8, z0: -4, z1: 8.5 } },
-  // 樹屋：整個一樓（半徑 12 的圓）加上二樓樹枝咖啡廳都能看到
-  tree: { free: { x0: -13, x1: 13, z0: -10, z1: 14 }, follow: { x0: -13, x1: 13, z0: -10, z1: 14 } },
+  // 樹屋：整個一樓（半徑 12 的圓）、二樓環形平台，以及懸在樹幹外面的樹枝咖啡廳都能看到
+  tree: { free: { x0: -31, x1: 31, z0: -31, z1: 33 }, follow: { x0: -31, x1: 31, z0: -31, z1: 33 } },
 };
 
 /**
@@ -63,7 +63,7 @@ function CameraRig({ mode, tree, resetKey, selfRef, showMe, seats, currentUserId
     const cx = clamp(t.x, b.x0, b.x1); const cz = clamp(t.z, b.z0, b.z1);
     if (cx !== t.x || cz !== t.z) { camera.position.x += cx - t.x; camera.position.z += cz - t.z; t.x = cx; t.z = cz; }
     if (!tree) t.y = HOME.target[1];
-    if (tree) { // 樹屋：鏡頭不能穿出樹幹
+    if (tree && Math.hypot(t.x - TREE.cx, t.z - TREE.cz) < TREE.R - 3) { // 樹屋：看樹幹裡面時，鏡頭不能穿出樹幹（走進樹枝咖啡廳時不限制）
       const ox = camera.position.x - TREE.cx; const oz = camera.position.z - TREE.cz; const d = Math.hypot(ox, oz); const max = TREE.R - 1;
       if (d > max) { camera.position.x = TREE.cx + (ox / d) * max; camera.position.z = TREE.cz + (oz / d) * max; }
     }
