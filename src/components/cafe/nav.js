@@ -1,17 +1,21 @@
-import { SEAT_LAYOUT, TABLES, PLANT_SPOTS, UPPER_SEAT_LAYOUT, UPPER_TABLES, FLOOR2_Y } from './layout';
-import { TREE, GROUND_R, STAIR_MOUTH, STAIR_TOP, STAIR_PATH, mushroomObstacles, insideUpperRegion } from './treeLayout';
+import { SEAT_LAYOUT, TABLES, PLANT_SPOTS, UPPER_SEAT_LAYOUT, UPPER_TABLES, FLOOR2_Y, FLOOR3_Y, FLOOR3_SEAT_LAYOUT, FLOOR3_TABLES } from './layout';
+import {
+  TREE, GROUND_R, STAIR_MOUTH, STAIR_TOP, STAIR_PATH, STAIR2_MOUTH, STAIR2_TOP, STAIR2_PATH,
+  mushroomObstacles, insideUpperRegion, insideFloor3Region,
+} from './treeLayout';
 
 /**
  * 走路用的尋路：把房間切成 0.2 公尺的格子，桌椅等障礙物依角色半徑「膨脹」後標成不可走，
  * 用 A* 找路，再把路徑拉直成少數幾個轉折點。障礙物與 CafeDecor 的擺設要對得上。
  *
  * 精靈樹洞咖啡館（theme.decor === 'tree'）有兩層：
- *   第 0 層 = 一樓（半徑 GROUND_R 的圓形地面），第 1 層 = 二樓（環形平台 + 通往各間樹枝咖啡廳的通道，高度 FLOOR2_Y）。
- *   兩層之間靠螺旋樓梯（STAIR_PATH）連接。路徑點都帶 y，走路模擬會沿著 y 爬樓梯。
+ *   第 0 層 = 一樓（半徑 GROUND_R 的圓形地面），第 1 層 = 二樓（環形平台 + 通往各間樹枝咖啡廳的通道，高度 FLOOR2_Y），
+ *   第 2 層 = 三樓（環形平台 + 通往分享書籍大廳的大樹枝，高度 FLOOR3_Y）。
+ *   層與層之間靠螺旋樓梯（STAIR_PATH、STAIR2_PATH）連接。路徑點都帶 y，走路模擬會沿著 y 爬樓梯。
  */
 const CELL = 0.2;
 const ROOM_BOUNDS = { X0: -9, X1: 9, Z0: -5, Z1: 9 };
-const TREE_BOUNDS = { X0: TREE.cx - 41, X1: TREE.cx + 41, Z0: TREE.cz - 41, Z1: TREE.cz + 41 }; // 要包含長在樹幹外面的樹枝咖啡廳
+const TREE_BOUNDS = { X0: TREE.cx - 48, X1: TREE.cx + 48, Z0: TREE.cz - 48, Z1: TREE.cz + 48 }; // 要包含長在樹幹外面的樹枝咖啡廳與分享書籍大廳
 const AGENT = 0.24;     // 角色半徑
 const WALL = 0.45;      // 離牆至少這麼遠
 
@@ -63,6 +67,20 @@ export function upperObstacles() {
   const o = [];
   UPPER_TABLES.forEach((t) => o.push(tableShape(t)));
   UPPER_SEAT_LAYOUT.forEach((s) => o.push(circ(s.x, s.z, SEAT_R[s.style] ?? 0.3)));
+  return o;
+}
+
+/** 三樓的障礙物：長桌 / 櫃台用一串圓來擋（它們沿著斜的樹枝方向），加上桌子與椅子 */
+export function floor3Obstacles() {
+  const o = [];
+  FLOOR3_TABLES.forEach((t) => {
+    if (t.type === 'long' || t.type === 'counter') {
+      const [x, , z] = t.position;
+      const r = t.dd / 2 + 0.1;
+      for (let k = -t.w / 2 + r; k <= t.w / 2 - r + 1e-6; k += 0.5) o.push(circ(x + t.dir[0] * k, z + t.dir[1] * k, r));
+    } else o.push(tableShape(t));
+  });
+  FLOOR3_SEAT_LAYOUT.forEach((s) => o.push(circ(s.x, s.z, SEAT_R[s.style] ?? 0.3)));
   return o;
 }
 
@@ -125,11 +143,26 @@ export function buildNav(theme) {
     ? (x, z) => Math.hypot(x - TREE.cx, z - TREE.cz) <= GROUND_R - WALL
     : (x, z) => !(x < X0 + WALL || x > X1 - WALL || z < Z0 + WALL || z > Z1 - WALL);
   const levels = [makeLevel(obstaclesFor(theme), inGround)];
-  if (tree) levels.push(makeLevel(upperObstacles(), insideUpperRegion));
+  if (tree) {
+    levels.push(makeLevel(upperObstacles(), insideUpperRegion));
+    levels.push(makeLevel(floor3Obstacles(), insideFloor3Region));
+  }
 
-  const levelOf = (y) => (tree && (y ?? 0) > FLOOR2_Y / 2 ? 1 : 0);
-  const levelY = (lv) => (lv === 1 ? FLOOR2_Y : 0);
+  const FLOOR_YS = [0, FLOOR2_Y, FLOOR3_Y];
+  const levelOf = (y) => {
+    if (!tree) return 0;
+    const v = y ?? 0;
+    if (v > (FLOOR2_Y + FLOOR3_Y) / 2) return 2;
+    return v > FLOOR2_Y / 2 ? 1 : 0;
+  };
+  const levelY = (lv) => FLOOR_YS[lv] ?? 0;
   const gridOf = (lv) => levels[lv] ?? levels[0];
+
+  // 樓梯：一樓 ↔ 二樓、二樓 ↔ 三樓
+  const connectors = [
+    { lo: 0, hi: 1, mouth: STAIR_MOUTH, top: STAIR_TOP, path: STAIR_PATH },
+    { lo: 1, hi: 2, mouth: STAIR2_MOUTH, top: STAIR2_TOP, path: STAIR2_PATH },
+  ];
 
   const free = (lv, i, j) => i >= 0 && j >= 0 && i < W && j < H && !gridOf(lv)[j * W + i];
   const cellOf = (x, z) => [
@@ -221,38 +254,41 @@ export function buildNav(theme) {
     return pts.map((p) => ({ x: p.x, z: p.z, y }));
   }
 
+  /** 從第 lv 層的 from 走到第 lvT 層的 to：需要換樓層就一段一段接上樓梯 */
+  function route(lv, from, to, lvT) {
+    if (lv === lvT) return findPathOnLevel(lv, from, to);
+    const up = lvT > lv;
+    const c = connectors.find((k) => (up ? k.lo === lv : k.hi === lv));
+    if (!c) return null;
+    const a = findPathOnLevel(lv, from, up ? c.mouth : c.top);
+    if (!a) return null;
+    const steps = up ? c.path : [...c.path.slice(0, -1).reverse(), c.mouth];
+    const rest = route(up ? c.hi : c.lo, up ? c.top : c.mouth, to, lvT);
+    return rest ? [...a, ...steps, ...rest] : null;
+  }
+
   /**
    * 回傳路徑點（不含起點，每點 { x, z, y }）；找不到路回傳 null。
    * from / to 可以帶 y（沒帶就是一樓）。樹屋裡起點與終點在不同樓層時，會自動接上樓梯。
    */
   function findPath(from, to) {
-    const lvTo = levelOf(to.y);
     if (!tree) return findPathOnLevel(0, from, to);
-
     const fy = from.y ?? 0;
+    const lvT = levelOf(to.y);
     // 人正站在樓梯上：先順著樓梯走到想去的那一端
-    if (fy > 0.3 && fy < FLOOR2_Y - 0.3) {
-      let k = 0; let bestD = Infinity;
-      STAIR_PATH.forEach((p, idx) => { const d = Math.hypot(p.x - from.x, p.z - from.z); if (d < bestD) { bestD = d; k = idx; } });
-      if (lvTo === 1) {
-        const rest = findPathOnLevel(1, STAIR_TOP, to);
-        return rest ? [...STAIR_PATH.slice(k + 1), ...rest] : null;
+    for (const c of connectors) {
+      if (fy > levelY(c.lo) + 0.3 && fy < levelY(c.hi) - 0.3) {
+        let k = 0; let bestD = Infinity;
+        c.path.forEach((p, idx) => { const d = Math.hypot(p.x - from.x, p.z - from.z); if (d < bestD) { bestD = d; k = idx; } });
+        if (lvT >= c.hi) {
+          const rest = route(c.hi, c.top, to, lvT);
+          return rest ? [...c.path.slice(k + 1), ...rest] : null;
+        }
+        const rest = route(c.lo, c.mouth, to, lvT);
+        return rest ? [...c.path.slice(0, k).reverse(), c.mouth, ...rest] : null;
       }
-      const rest = findPathOnLevel(0, STAIR_MOUTH, to);
-      return rest ? [...STAIR_PATH.slice(0, k).reverse(), STAIR_MOUTH, ...rest] : null;
     }
-
-    const lvFrom = levelOf(fy);
-    if (lvFrom === lvTo) return findPathOnLevel(lvFrom, from, to);
-    if (lvFrom === 0) { // 一樓 → 二樓
-      const a = findPathOnLevel(0, from, STAIR_MOUTH);
-      const b = findPathOnLevel(1, STAIR_TOP, to);
-      return a && b ? [...a, ...STAIR_PATH, ...b] : null;
-    }
-    // 二樓 → 一樓
-    const a = findPathOnLevel(1, from, STAIR_TOP);
-    const b = findPathOnLevel(0, STAIR_MOUTH, to);
-    return a && b ? [...a, ...STAIR_PATH.slice(0, -1).reverse(), STAIR_MOUTH, ...b] : null;
+    return route(levelOf(fy), from, to, lvT);
   }
 
   return { findPath, nearestFree, isFree, levelOf, levelY };
