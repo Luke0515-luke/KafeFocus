@@ -637,7 +637,7 @@ function BranchCafes() {
                   <cylinderGeometry args={[1.6, 1.6, passB - passA, 28, 1, true]} />
                   <meshStandardMaterial map={bark} side={THREE.BackSide} roughness={1} />
                 </mesh>
-                <mesh position={[0, -1.4, 0]} receiveShadow>
+                <mesh position={[0, -1.42, 0]} receiveShadow>
                   <boxGeometry args={[2.2, 0.4, passB - passA]} />
                   <meshStandardMaterial map={planks} roughness={0.85} />
                 </mesh>
@@ -645,7 +645,7 @@ function BranchCafes() {
               {/* 空心大樹枝：樹皮牆面（有窗）+ 尾端半球 + 入口牆 + 木地板 */}
               <mesh position={[0, HALL_CY, hallMid]} rotation={[Math.PI / 2, 0, 0]}>
                 <cylinderGeometry args={[HALL_R, HALL_R, hallLen, 48, 1, true]} />
-                <meshStandardMaterial map={bark} alphaMap={winMap} alphaTest={0.5} side={THREE.BackSide} roughness={1} emissive="#3a2410" emissiveIntensity={0.35} />
+                <meshStandardMaterial map={bark} alphaMap={winMap} alphaTest={0.5} side={THREE.BackSide} roughness={1} emissive="#5a3a1a" emissiveIntensity={0.55} />
               </mesh>
               <mesh position={[0, HALL_CY, BRANCH.hallEnd]} rotation={[Math.PI / 2, 0, 0]}>
                 <sphereGeometry args={[HALL_R, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2]} />
@@ -655,11 +655,11 @@ function BranchCafes() {
                 <ringGeometry args={[1.6, HALL_R + 0.1, 48]} />
                 <meshStandardMaterial map={bark} side={THREE.DoubleSide} roughness={1} emissive="#3a2410" emissiveIntensity={0.3} />
               </mesh>
-              <mesh position={[0, -0.25, hallMid]} castShadow receiveShadow>
+              <mesh position={[0, -0.25, hallMid]} receiveShadow>
                 <boxGeometry args={[floorHalf * 2, 0.5, hallLen]} />
-                <meshStandardMaterial map={planks} roughness={0.85} />
+                <meshStandardMaterial map={planks} roughness={0.85} emissive="#8a6238" emissiveMap={planks} emissiveIntensity={0.3} />
               </mesh>
-              <mesh position={[0, -0.25, BRANCH.hallEnd]} castShadow receiveShadow>
+              <mesh position={[0, -0.27, BRANCH.hallEnd]} receiveShadow>
                 <cylinderGeometry args={[floorHalf, floorHalf, 0.5, 40]} />
                 <meshStandardMaterial map={planks} roughness={0.85} />
               </mesh>
@@ -695,6 +695,7 @@ function BranchCafes() {
                   <group key={k} position={[0, HALL_CY + HALL_R - 0.4, a]}>
                     <mesh position={[0, -0.6, 0]}><cylinderGeometry args={[0.012, 0.012, 1.2, 5]} /><meshStandardMaterial color="#2a4a2a" roughness={1} /></mesh>
                     <mesh position={[0, -1.3, 0]} scale={[1, 1.25, 1]}><sphereGeometry args={[0.28, 16, 12]} /><meshBasicMaterial color={k % 2 ? '#ffe6a0' : '#ffd27a'} toneMapped={false} /></mesh>
+                    <mesh position={[0, -1.3, 0]}><sphereGeometry args={[0.8, 14, 10]} /><meshBasicMaterial color="#ffb85a" transparent opacity={0.12} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} /></mesh>
                     <mesh position={[0, -0.95, 0]}><coneGeometry args={[0.22, 0.24, 8]} /><meshStandardMaterial color="#3d6a3a" roughness={0.8} /></mesh>
                   </group>
                 );
@@ -702,7 +703,6 @@ function BranchCafes() {
               {[24.5, 29, 33].map((a, i) => [-1, 1].map((side) => (
                 <Mushroom key={`${a}${side}`} position={[side * 3.95, 0, a]} s={0.26 + (i % 2) * 0.08} c={MUSH[(b.k + i) % 4]} />
               )))}
-              <pointLight position={[0, 3.4, 25.5]} color="#ffd68a" intensity={30} distance={19} decay={2} />
             </group>
           </group>
         );
@@ -721,7 +721,7 @@ function BarkPlugs() {
         const rot = faceCenter(x, z);
         return (
           <group key={phi} position={[x, y, z]} rotation={[0, rot, 0]}>
-            <mesh scale={[1, 1, 0.42]} castShadow>
+            <mesh scale={[1, 1, 0.3]}>
               <sphereGeometry args={[1.62, 28, 18]} />
               <meshStandardMaterial map={bark} roughness={1} />
             </mesh>
@@ -746,46 +746,41 @@ function BarkPlugs() {
   );
 }
 
-/** 樹幹外面的森林（只有從樹枝咖啡廳的窗戶才看得到）：遠處的大樹幹、成團的樹冠葉叢，腳下是很深的森林地面 */
+/**
+ * 樹幹外面的森林（只有從樹枝咖啡廳的窗戶才看得到）：遠處的大樹幹、成團的樹冠葉叢，腳下是很深的森林地面。
+ * 全部放在離樹心 70 公尺以外（鏡頭最遠只會到離樹心 55 左右），不然會有大塊東西擋在鏡頭前面。
+ * 材質關掉霧（fog={false}），顏色直接調暗，遠看就是一片深色的森林剪影。
+ */
 function ForestOutside() {
   const { trunks, blobs } = useMemo(() => {
     const rnd = rngFactory(808);
-    const nearHall = (x, z, pad) => BRANCH_ROOMS.some((b) => {
-      const dx = x - TREE.cx; const dz = z - TREE.cz;
-      const along = dx * b.d[0] + dz * b.d[1]; const lat = dx * b.l[0] + dz * b.l[1];
-      return along > 10 && along < 46 && Math.abs(lat) < pad;
-    });
     const trunks = []; const blobs = [];
-    for (let i = 0; i < 40 && trunks.length < 16; i += 1) {
-      const a = rnd() * Math.PI * 2; const r = 52 + rnd() * 42; const rr = 2.5 + rnd() * 3.5;
-      const x = TREE.cx + Math.cos(a) * r; const z = TREE.cz + Math.sin(a) * r;
-      if (nearHall(x, z, rr + 8)) continue;
-      trunks.push({ x, z, r: rr, c: i % 2 ? '#2b2118' : '#33261b' });
+    for (let i = 0; i < 16; i += 1) {
+      const a = (i / 16) * Math.PI * 2 + rnd() * 0.3; const r = 80 + rnd() * 35;
+      trunks.push({ x: TREE.cx + Math.cos(a) * r, z: TREE.cz + Math.sin(a) * r, r: 3 + rnd() * 4, c: i % 2 ? '#1c1610' : '#221a12' });
     }
-    for (let i = 0; i < 220 && blobs.length < 70; i += 1) {
-      const a = rnd() * Math.PI * 2; const r = 26 + rnd() * 66; const y = -6 + rnd() * 30; const s = 5 + rnd() * 7;
-      const x = TREE.cx + Math.cos(a) * r; const z = TREE.cz + Math.sin(a) * r;
-      if (nearHall(x, z, s + 7) && y > -3 && y < 18) continue;
-      blobs.push({ x, y, z, s, c: ['#2f5a2a', '#3a6b30', '#27502a', '#356636'][i % 4] });
+    for (let i = 0; i < 70; i += 1) {
+      const a = rnd() * Math.PI * 2; const r = 72 + rnd() * 55; const y = -8 + rnd() * 34; const s = 6 + rnd() * 8;
+      blobs.push({ x: TREE.cx + Math.cos(a) * r, y, z: TREE.cz + Math.sin(a) * r, s, c: ['#1d3a1b', '#244a22', '#193618', '#21421f'][i % 4] });
     }
     return { trunks, blobs };
   }, []);
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[TREE.cx, -30, TREE.cz]}>
-        <circleGeometry args={[240, 40]} />
-        <meshStandardMaterial color="#0c1a14" roughness={1} />
+        <circleGeometry args={[260, 40]} />
+        <meshBasicMaterial color="#0a1510" fog={false} />
       </mesh>
       {trunks.map((t, i) => (
         <mesh key={i} position={[t.x, 10, t.z]}>
-          <cylinderGeometry args={[t.r * 0.9, t.r, 100, 14]} />
-          <meshStandardMaterial color={t.c} roughness={1} />
+          <cylinderGeometry args={[t.r * 0.9, t.r, 100, 12]} />
+          <meshBasicMaterial color={t.c} fog={false} />
         </mesh>
       ))}
-      {blobs.map((b, i) => (
-        <mesh key={i} position={[b.x, b.y, b.z]} scale={[b.s, b.s * 0.6, b.s]}>
+      {blobs.map((bl, i) => (
+        <mesh key={i} position={[bl.x, bl.y, bl.z]} scale={[bl.s, bl.s * 0.6, bl.s]}>
           <icosahedronGeometry args={[1, 1]} />
-          <meshStandardMaterial color={b.c} roughness={1} flatShading emissive={b.c} emissiveIntensity={0.08} />
+          <meshBasicMaterial color={bl.c} fog={false} />
         </mesh>
       ))}
     </group>
