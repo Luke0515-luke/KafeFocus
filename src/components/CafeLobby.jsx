@@ -7,6 +7,7 @@ import { CAFE_ORDER, getMeta, getTheme } from '../config/themes';
 import { beanInfo, fmtDuration, levelFromXp, levelStart } from '../lib/openProfile';
 import { Search, Shuffle } from 'lucide-react';
 
+const TREEHOUSE = 'treehouse-hollow'; // 精靈樹洞咖啡館的 slug（有二、三樓）
 const ICONS = { Coffee, Music, Sun, Leaf, Store, Zap, Flower2, Snowflake, Sunset, TreeDeciduous, Waves };
 
 /** 首頁：列出所有咖啡廳，顯示即時人數，點選進入。 */
@@ -180,6 +181,22 @@ export default function CafeLobby({ session, onSelect, onSignOut, onSignIn, onOp
           </select>
           <button type="button" onClick={joinRandom} disabled={!cafes?.length} className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"><Shuffle size={15} />隨機進一間</button>
         </div>
+
+        {/* 精靈樹洞：直接進二樓 / 三樓（不用在一樓慢慢找樓梯） */}
+        {(cafes ?? []).some((c) => c.slug === TREEHOUSE) && (
+          <section className="mb-5 rounded-2xl bg-gradient-to-r from-emerald-950 to-stone-800 p-4 ring-1 ring-emerald-800/60">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 text-base font-semibold text-emerald-100"><TreeDeciduous size={18} />精靈樹洞・直達樓層</h2>
+                <p className="mt-0.5 text-xs text-emerald-200/70">不用從一樓爬樓梯，直接從樓梯口進到想去的樓層。</p>
+              </div>
+              <div className="flex flex-wrap gap-2 max-sm:w-full max-sm:[&>button]:flex-1">
+                <button type="button" onClick={() => onSelect(TREEHOUSE, 2)} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600">二樓・樹枝咖啡廳</button>
+                <button type="button" onClick={() => onSelect(TREEHOUSE, 3)} className="rounded-lg bg-amber-700 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600">三樓・分享書籍大廳</button>
+              </div>
+            </div>
+          </section>
+        )}
 
         {error && <p className="mb-4 text-sm text-rose-400">{error}</p>}
         {!cafes && !error && <p className="text-stone-500">載入咖啡廳中…</p>}
