@@ -152,6 +152,16 @@ function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, o
     else if (r?.result === 'error') setToast('⚠️ 專注紀錄寫入失敗，請稍後再試。');
   }, [endFocusEarly]);
 
+  // 離座：專注中離開、已專注 10 分鐘以上，資料庫會依實際分鐘數記錄（回大廳 / 關網頁也一樣），這裡只負責顯示提示
+  const handleLeave = useCallback(async () => {
+    const was = mySeat;
+    await leaveSeat();
+    if (was?.status === 'studying' && was.phase_started_at) {
+      const min = Math.floor((Date.now() - new Date(was.phase_started_at).getTime()) / 60000);
+      if (min >= 10) { setToast(`✅ 已記錄專注 ${Math.min(min, 240)} 分鐘${was.task ? `（${was.task}）` : ''}`); statsReload(); }
+    }
+  }, [mySeat, leaveSeat, statsReload]);
+
   // 真正入座（走到椅子旁邊之後，或已經坐著要換位時呼叫）
   const handleSit = useCallback(async (seat) => {
     setNotice('');
@@ -220,7 +230,7 @@ function CafeRoom({ slug, session, onBack, onSignOut, onSignIn, onRequireAuth, o
         outfit={outfit}
         onOutfitChange={handleOutfit}
         onSetStatus={(status, task, sec) => setStatus({ status, task, durationSec: sec })}
-        onLeave={leaveSeat}
+        onLeave={handleLeave}
         onSaveAvatar={handleSaveAvatar}
         onBack={onBack}
         onSignOut={handleSignOut}
