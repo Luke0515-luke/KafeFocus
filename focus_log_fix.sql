@@ -5,7 +5,7 @@
 -- 問題：以前只靠瀏覽器的 setTimeout 在「時間到」那一刻寫入。分頁在背景、手機鎖屏、
 --       心跳中斷被 cron 當幽靈座位釋放時，計時器一起消失 → 完全沒有紀錄。
 -- 修法：改由資料庫保證記錄，前端只負責即時回饋。
---   1. cafe_seats 的 trigger：專注階段「已經跑完」之後，只要座位被離開 / 換狀態 / 換人，就補寫一筆。
+--   1. cafe_seats 的 trigger：專注階段跑完後離開會補寫一筆；中途離開（回大廳、離座、關網頁）只要已專注 10 分鐘以上，也依實際分鐘數記錄。
 --   2. pg_cron 每分鐘掃描：已跑完卻還坐在位子上的，也補寫（不改座位）。
 --   3. release_stale_seats：專注倒數還沒跑完時，不因心跳中斷而踢人（跑完 + 90 秒才清）。
 --   4. claim_seat：可以接手「沒有心跳」的座位（避免看起來是空位卻搶不到）。
@@ -44,20 +44,34 @@ exception when others then
   return null;
 end $$;
 
--- ---------- 2. Trigger：專注階段跑完後，座位一被離開 / 換狀態就補記 ----------
+-- ---------- 2. Trigger：專注階段「離開 / 換狀態 / 換人」時補記 ----------
+--   (a) 階段已經跑完：記整段。
+--   (b) 階段還沒跑完就離開（按「離座」、按「回到大廳」、關網頁、手滑誤觸…）：
+--       只要已經專注 10 分鐘以上，就依「實際專注分鐘數」記錄，不會因為不小心離開而整段白做。
+--       不到 10 分鐘的不記（要提前結束並記錄請按「提前結束」，1 分鐘以上就會記）。
 create or replace function public._cafe_seats_log_focus() returns trigger
 language plpgsql security definer set search_path = public as $$
+declare
+  v_min int;
 begin
   if old.status = 'studying'
      and old.occupant_id is not null
      and old.phase_started_at is not null
-     and old.phase_ends_at is not null
-     and old.phase_ends_at <= now() + interval '5 seconds'   -- 容許前後端時鐘小誤差
      and (   new.occupant_id      is distinct from old.occupant_id
           or new.status           is distinct from old.status
           or new.phase_started_at is distinct from old.phase_started_at)
   then
-    perform public._insert_focus_log(old.occupant_id, old.cafe_id, old.task, old.phase_started_at, old.phase_ends_at);
+    if old.phase_ends_at is not null and old.phase_ends_at <= now() + interval '5 seconds' then
+      -- (a) 容許前後端時鐘小誤差
+      perform public._insert_focus_log(old.occupant_id, old.cafe_id, old.task, old.phase_started_at, old.phase_ends_at);
+    else
+      -- (b) 中途離開：實際專注分鐘數（無條件捨去），至少 10 分鐘才記
+      v_min := least(240, floor(extract(epoch from (now() - old.phase_started_at)) / 60.0)::int);
+      if v_min >= 10 then
+        perform public._insert_focus_log(old.occupant_id, old.cafe_id, old.task, old.phase_started_at,
+                                         old.phase_started_at + make_interval(mins => v_min));
+      end if;
+    end if;
   end if;
   return new;
 end $$;
